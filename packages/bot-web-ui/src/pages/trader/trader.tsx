@@ -85,24 +85,8 @@ const DTraderAutoLogin: React.FC<DTraderAutoLoginProps> = ({
 
     const checkAuthAndUpdate = useCallback(() => {
         try {
-            // Deriv stores active loginid in 'active_loginid'
+            const authToken = localStorage.getItem('authToken');
             const activeLoginId = localStorage.getItem('active_loginid');
-
-            if (!activeLoginId) {
-                setIframeSrc(`${dtraderUrl}?chart_type=area&interval=1t&symbol=${defaultSymbol}&trade_type=over_under`);
-                setIsLoading(false);
-                return;
-            }
-
-            // Deriv stores accounts in 'client.accounts' as { CR123: { token: '...', ... }, VRTC456: { token: '...', ... } }
-            let authToken: string | null = null;
-            try {
-                const clientAccounts = JSON.parse(localStorage.getItem('client.accounts') || '{}');
-                authToken = clientAccounts[activeLoginId]?.token || null;
-            } catch {
-                // fallback for legacy storage
-                authToken = localStorage.getItem('authToken');
-            }
 
             if (authToken && activeLoginId) {
                 buildIframeUrl(authToken, activeLoginId);
