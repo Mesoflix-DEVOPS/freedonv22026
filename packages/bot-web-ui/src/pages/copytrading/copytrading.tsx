@@ -1,4 +1,3 @@
-'use client'
 import React, { useState, useEffect } from 'react';
 import { FaYoutube } from 'react-icons/fa';
 
@@ -7,26 +6,41 @@ const TokenManager: React.FC = () => {
     const [savedToken, setSavedToken] = useState<string | null>(null);
     const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
-    const [isCopyTrading, setIsCopyTrading] = useState(false); // New state for copy trading
+    const [isCopyTrading, setIsCopyTrading] = useState(false);
+
+    // Inject global CSS once on mount (avoids the `jsx global` prop warning)
+    useEffect(() => {
+        const styleId = 'copytrading-global-styles';
+        if (!document.getElementById(styleId)) {
+            const styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            styleEl.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to   { transform: translateX(0);    opacity: 1; }
+                }
+                @media (max-width: 768px) {
+                    input, textarea, select { font-size: 16px !important; }
+                    button { touch-action: manipulation; }
+                    body { -webkit-overflow-scrolling: touch; overflow-x: hidden; }
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+    }, []);
 
     // Check if mobile on mount and resize
     useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth <= 768);
-        };
-        
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
         checkMobile();
         window.addEventListener('resize', checkMobile);
-        
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     // Auto-dismiss toast after 3 seconds
     useEffect(() => {
         if (toast) {
-            const timer = setTimeout(() => {
-                setToast(null);
-            }, 3000);
+            const timer = setTimeout(() => setToast(null), 3000);
             return () => clearTimeout(timer);
         }
     }, [toast]);
@@ -35,9 +49,7 @@ const TokenManager: React.FC = () => {
     useEffect(() => {
         try {
             const saved = localStorage.getItem('deriv_copier_token') || localStorage.getItem('deriv_copy_user_token');
-            if (saved) {
-                setSavedToken(saved);
-            }
+            if (saved) setSavedToken(saved);
         } catch (error) {
             console.error('Error loading saved token:', error);
         }
@@ -45,17 +57,8 @@ const TokenManager: React.FC = () => {
 
     const saveToken = () => {
         const t = token.trim();
-        
-        if (!t) {
-            setToast({ type: 'err', text: 'Token is empty' });
-            return;
-        }
-        
-        if (t.length < 10) {
-            setToast({ type: 'err', text: 'Token is too short' });
-            return;
-        }
-        
+        if (!t) { setToast({ type: 'err', text: 'Token is empty' }); return; }
+        if (t.length < 10) { setToast({ type: 'err', text: 'Token is too short' }); return; }
         try {
             localStorage.setItem('deriv_copier_token', t);
             setSavedToken(t);
@@ -72,7 +75,7 @@ const TokenManager: React.FC = () => {
             localStorage.removeItem('deriv_copier_token');
             localStorage.removeItem('deriv_copy_user_token');
             setSavedToken(null);
-            setIsCopyTrading(false); // Also stop copy trading if token is removed
+            setIsCopyTrading(false);
             setToast({ type: 'ok', text: 'Token removed successfully' });
         } catch (error) {
             console.error('Error removing token:', error);
@@ -82,20 +85,16 @@ const TokenManager: React.FC = () => {
 
     const toggleCopyTrading = () => {
         if (!isCopyTrading) {
-            // Start copy trading
             setIsCopyTrading(true);
             setToast({ type: 'ok', text: 'Copy trading started (frontend only)' });
-            console.log('Copy trading started');
         } else {
-            // Stop copy trading
             setIsCopyTrading(false);
             setToast({ type: 'ok', text: 'Copy trading stopped' });
-            console.log('Copy trading stopped - Frontend simulation only');
         }
     };
 
     return (
-        <div style={{ 
+        <div style={{
             position: 'fixed',
             width: '100%',
             height: isMobile ? '70vh' : '75vh',
@@ -128,12 +127,7 @@ const TokenManager: React.FC = () => {
                 boxSizing: 'border-box' as const,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
             }}>
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: isMobile ? '16px' : '20px',
-                    width: '100%'
-                }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px', width: '100%' }}>
                     <div style={{
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row' as const,
@@ -153,12 +147,7 @@ const TokenManager: React.FC = () => {
                             alignSelf: isMobile ? 'center' : 'stretch'
                         }}>
                             <FaYoutube style={{ color: '#FF0000', fontSize: isMobile ? '22px' : '24px' }} />
-                            <span style={{
-                                color: '#333',
-                                fontSize: isMobile ? '10px' : '11px',
-                                marginTop: '3px',
-                                fontWeight: '500'
-                            }}>
+                            <span style={{ color: '#333', fontSize: isMobile ? '10px' : '11px', marginTop: '3px', fontWeight: '500' }}>
                                 Tutorial
                             </span>
                         </div>
@@ -179,10 +168,10 @@ const TokenManager: React.FC = () => {
                                 backgroundColor: '#fafafa',
                                 transition: 'border-color 0.2s'
                             }}
-                            onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
-                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                            onFocus={(e) => { e.target.style.borderColor = '#4CAF50'; }}
+                            onBlur={(e) => { e.target.style.borderColor = '#e0e0e0'; }}
                         />
-                        <button 
+                        <button
                             style={{
                                 backgroundColor: '#4CAF50',
                                 color: 'white',
@@ -204,20 +193,6 @@ const TokenManager: React.FC = () => {
                             }}
                             onClick={saveToken}
                             disabled={!token}
-                            onMouseEnter={e => {
-                                if (token) {
-                                    e.currentTarget.style.backgroundColor = '#43a047';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                                }
-                            }}
-                            onMouseLeave={e => {
-                                if (token) {
-                                    e.currentTarget.style.backgroundColor = '#4CAF50';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                                }
-                            }}
                         >
                             <span>Save Token</span>
                         </button>
@@ -235,18 +210,17 @@ const TokenManager: React.FC = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 flex: '0 0 auto'
             }}>
-                <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     flexDirection: isMobile ? 'column' : 'row' as const,
                     gap: isMobile ? '15px' : '0',
                     width: '100%'
                 }}>
-                    {/* Token Display */}
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: isMobile ? '12px' : '20px',
                         flexDirection: isMobile ? 'column' : 'row' as const,
                         width: isMobile ? '100%' : 'auto'
@@ -256,7 +230,7 @@ const TokenManager: React.FC = () => {
                             padding: isMobile ? '12px 16px' : '10px 16px',
                             borderRadius: '8px',
                             fontFamily: 'monospace',
-                            fontSize: isMobile ? '14px' : '14px',
+                            fontSize: '14px',
                             color: '#1a237e',
                             border: '2px solid #d1d9ff',
                             display: 'flex',
@@ -271,28 +245,19 @@ const TokenManager: React.FC = () => {
                             <span style={{ fontWeight: '500' }}>
                                 {savedToken ? `${savedToken.slice(0, 4)}...${savedToken.slice(-4)}` : 'No token saved'}
                             </span>
-                            <span style={{
-                                color: savedToken ? '#4caf50' : '#f44336',
-                                fontSize: isMobile ? '12px' : '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}>
+                            <span style={{ color: savedToken ? '#4caf50' : '#f44336', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{
-                                    width: '10px',
-                                    height: '10px',
+                                    width: '10px', height: '10px',
                                     backgroundColor: savedToken ? '#4caf50' : '#f44336',
-                                    borderRadius: '50%',
-                                    display: 'inline-block'
-                                }}></span>
+                                    borderRadius: '50%', display: 'inline-block'
+                                }} />
                                 {savedToken ? 'Saved' : 'Not Saved'}
                             </span>
                         </div>
                     </div>
 
-                    {/* Remove Button */}
                     {savedToken && (
-                        <button 
+                        <button
                             style={{
                                 backgroundColor: '#f44336',
                                 color: 'white',
@@ -300,7 +265,7 @@ const TokenManager: React.FC = () => {
                                 padding: isMobile ? '14px 16px' : '12px 20px',
                                 borderRadius: '8px',
                                 fontWeight: '600',
-                                fontSize: isMobile ? '15px' : '15px',
+                                fontSize: '15px',
                                 whiteSpace: 'nowrap' as const,
                                 transition: 'all 0.2s',
                                 cursor: 'pointer',
@@ -310,30 +275,15 @@ const TokenManager: React.FC = () => {
                                 width: isMobile ? '100%' : 'auto'
                             }}
                             onClick={removeToken}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.backgroundColor = '#d32f2f';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.backgroundColor = '#f44336';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            }}
                         >
                             Remove Token
                         </button>
                     )}
                 </div>
 
-                {/* Copy Trading Button */}
                 {savedToken && (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        marginTop: isMobile ? '20px' : '25px'
-                    }}>
-                        <button 
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: isMobile ? '20px' : '25px' }}>
+                        <button
                             style={{
                                 backgroundColor: isCopyTrading ? '#f44336' : '#4CAF50',
                                 color: 'white',
@@ -351,21 +301,12 @@ const TokenManager: React.FC = () => {
                                 minWidth: isMobile ? 'auto' : '250px'
                             }}
                             onClick={toggleCopyTrading}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.25)';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                            }}
                         >
                             {isCopyTrading ? '🛑 Stop Copy Trading' : '🚀 Start Copy Trading'}
                         </button>
                     </div>
                 )}
 
-                {/* Copy Trading Status */}
                 {savedToken && (
                     <div style={{
                         marginTop: isMobile ? '15px' : '20px',
@@ -383,19 +324,14 @@ const TokenManager: React.FC = () => {
                         gap: '10px'
                     }}>
                         <div style={{
-                            width: '12px',
-                            height: '12px',
+                            width: '12px', height: '12px',
                             backgroundColor: isCopyTrading ? '#4CAF50' : '#9e9e9e',
-                            borderRadius: '50%',
-                            display: 'inline-block'
-                        }}></div>
-                        <span>
-                            Copy Trading: {isCopyTrading ? 'Active' : 'Inactive'}
-                        </span>
+                            borderRadius: '50%', display: 'inline-block'
+                        }} />
+                        <span>Copy Trading: {isCopyTrading ? 'Active' : 'Inactive'}</span>
                     </div>
                 )}
 
-                {/* Info Text */}
                 <div style={{
                     marginTop: isMobile ? '20px' : '25px',
                     padding: isMobile ? '12px 16px' : '16px 20px',
@@ -409,22 +345,15 @@ const TokenManager: React.FC = () => {
                     <p style={{ margin: '0 0 8px 0', fontWeight: '600', color: '#0a1aadff' }}>
                         How to get your API token:
                     </p>
-                    <ol style={{ 
-                        margin: '0', 
-                        paddingLeft: '20px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                    }}>
+                    <ol style={{ margin: '0', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <li>Go to your Deriv account settings</li>
                         <li>Navigate to API token section</li>
                         <li>Generate a new token or copy existing one</li>
-                        <li>Paste it above and click "Save Token"</li>
+                        <li>Paste it above and click &quot;Save Token&quot;</li>
                     </ol>
-                    
                 </div>
             </div>
-           
+
             {/* Toast Notification */}
             {toast && (
                 <div style={{
@@ -445,48 +374,12 @@ const TokenManager: React.FC = () => {
                     animation: 'slideInRight 0.3s ease',
                     maxWidth: isMobile ? 'calc(100% - 20px)' : '400px'
                 }}>
-                    <div style={{ fontSize: '20px' }}>
-                        {toast.type === 'ok' ? '✓' : '⚠'}
-                    </div>
-                    <span style={{
-                        flex: 1,
-                        textAlign: 'center',
-                        fontSize: isMobile ? '14px' : '15px'
-                    }}>
+                    <div style={{ fontSize: '20px' }}>{toast.type === 'ok' ? '✓' : '⚠'}</div>
+                    <span style={{ flex: 1, textAlign: 'center', fontSize: isMobile ? '14px' : '15px' }}>
                         {toast.text}
                     </span>
                 </div>
             )}
-
-            <style jsx global>{`
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                
-                /* Mobile optimizations */
-                @media (max-width: 768px) {
-                    input, textarea, select {
-                        font-size: 16px !important; /* Prevent zoom on iOS */
-                    }
-                    
-                    button {
-                        touch-action: manipulation; /* Improve touch response */
-                    }
-                    
-                    /* Improve scrolling on mobile */
-                    body {
-                        -webkit-overflow-scrolling: touch;
-                        overflow-x: hidden;
-                    }
-                }
-            `}</style>
         </div>
     );
 };

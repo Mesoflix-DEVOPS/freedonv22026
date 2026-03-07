@@ -5,36 +5,31 @@ import { TRecentStrategy } from './types';
 import './recent-workspace.scss';
 import { loadStrategy } from '../../../../../bot-skeleton/src/utils/local-storage';
 
-const BOT_EMOJIS = ['🤖', '👾', '🦾', '🧠', '⚡', '💻', '🔮', '🎮'];
+const BOT_NAMES = ['AlphaWave Pro', 'TrendMaster X', 'VolatilityBot', 'GridMaster AI', 'MomentumEdge', 'ScalperBot', 'NeuralTrader', 'PrecisionBot'];
 const BOT_DESCRIPTIONS = [
-    "This bot uses moving averages to identify trends. It enters trades when short-term averages cross above long-term ones.",
-    "A volatility-based bot that expands position size during high volatility. It uses Bollinger Bands to determine entry points.",
-    "This mean-reversion bot trades when prices deviate from historical averages. It works best in ranging markets.",
-    "A breakout strategy that enters trades when price moves beyond support/resistance. Uses volume confirmation.",
-    "This bot implements a simple scalping strategy. It aims for small profits with tight stop losses.",
-    "A momentum-based bot that follows strong trending moves. Uses RSI to avoid overbought conditions.",
-    "This grid bot places orders at fixed intervals above and below price. It profits from market oscillations.",
-    "A news-based bot that reacts to economic events. Uses sentiment analysis to determine trade direction."
+    'Advanced trend-following strategy using dual moving average crossover with adaptive stop-loss management.',
+    'Volatility-based entry system using Bollinger Band breakouts with momentum confirmation.',
+    'Mean-reversion bot capturing price deviations from equilibrium in range-bound conditions.',
+    'Breakout strategy entering on support/resistance breaks with volume-confirmed signals.',
+    'High-frequency scalper targeting micro-profits with tight spreads and rapid execution.',
+    'RSI-powered momentum bot avoiding overbought/oversold traps for clean trend direction.',
+    'Grid-based placement system profiting from market oscillations with dynamic spacing.',
+    'News-event reactive strategy using sentiment triggers for directional trading edges.',
 ];
+const WIN_RATES = [87, 74, 91, 68, 82, 79, 95, 71];
+const TIMEFRAMES = ['1m', '5m', '15m', '1h', '30m', '5m', '1m', '4h'];
 
 const RecentWorkspace = observer(({ workspace, index }: { workspace: TRecentStrategy, index: number }) => {
     const { dashboard } = useDBotStore();
     const strategyIdRef = React.useRef(workspace.id);
-    const strategyNameRef = React.useRef(workspace.name || 'Untitled Bot');
-    const perfPercent = React.useMemo(() => {
-        const base = String(strategyIdRef.current || strategyNameRef.current);
-        let h = 0;
-        for (let i = 0; i < base.length; i++) h = (h * 31 + base.charCodeAt(i)) >>> 0;
-        return 55 + (h % 45);
-    }, []);
+    const strategyNameRef = React.useRef(workspace.name || BOT_NAMES[index % BOT_NAMES.length]);
+    const winRate = WIN_RATES[index % WIN_RATES.length];
+    const timeframe = TIMEFRAMES[index % TIMEFRAMES.length];
 
-    const handleClick = async () => {
-        console.log(`[CLICK] Loading bot: ${strategyIdRef.current}, Name: ${strategyNameRef.current}`);
+    const handleLoad = async (e: React.MouseEvent) => {
+        e.stopPropagation();
         try {
-            // Ensure Bot Builder tab is active so Blockly can mount and initialize the workspace
             dashboard.setActiveTab(1);
-
-            // Wait for Blockly workspace to be ready (poll up to ~5s)
             const waitForWorkspace = () =>
                 new Promise<boolean>(resolve => {
                     const start = Date.now();
@@ -42,87 +37,71 @@ const RecentWorkspace = observer(({ workspace, index }: { workspace: TRecentStra
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const Blockly: any = (window as unknown as { Blockly?: unknown }).Blockly;
                         const ready = !!(Blockly && (Blockly as any).derivWorkspace);
-                        if (ready) {
-                            clearInterval(interval);
-                            resolve(true);
-                        } else if (Date.now() - start > 5000) {
-                            clearInterval(interval);
-                            resolve(false);
-                        }
+                        if (ready) { clearInterval(interval); resolve(true); }
+                        else if (Date.now() - start > 5000) { clearInterval(interval); resolve(false); }
                     }, 100);
                 });
 
             const workspace_ready = await waitForWorkspace();
-            if (!workspace_ready) {
-                console.error('[ERROR] Blockly workspace not initialized in time');
-                return;
-            }
-
-            const success = await loadStrategy(strategyIdRef.current);
-            if (success) {
-                console.log(`[SUCCESS] Bot loaded successfully: ${strategyNameRef.current}`);
-            } else {
-                console.error(`[ERROR] Failed to load bot: ${strategyNameRef.current}`);
+            if (workspace_ready) {
+                await loadStrategy(strategyIdRef.current);
             }
         } catch (error) {
-            console.error(`[ERROR] Exception while loading bot: ${strategyNameRef.current}`, error);
+            console.error(`[ERROR] Failed to load bot:`, error);
         }
     };
 
-    const randomEmoji = BOT_EMOJIS[index % BOT_EMOJIS.length];
-    const botDescription = BOT_DESCRIPTIONS[index % BOT_DESCRIPTIONS.length];
-
     return (
-        <div className="dbot-workspace-card" onClick={handleClick} data-bot-id={workspace.id}>
-            {/* YouTube Icon */}
-            <div className="dbot-workspace-card__youtube-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FF0000" />
-                </svg>
+        <div className='dbot-gold-card'>
+            {/* Animated background circuit lines */}
+            <div className='dbot-gold-card__circuits'>
+                {Array.from({ length: 6 }).map((_, i) => <span key={i} />)}
             </div>
 
-            {/* Background elements */}
-            <div className="dbot-workspace-card__particles">
-                {Array.from({ length: 12 }).map((_, i) => (
-                    <span key={i}></span>
-                ))}
+            {/* Floating gold particles */}
+            <div className='dbot-gold-card__particles'>
+                {Array.from({ length: 8 }).map((_, i) => <span key={i} />)}
             </div>
-            <div className="dbot-workspace-card__border-glow"></div>
 
-            {/* Content */}
-            <div className="dbot-workspace-card__emoji">{randomEmoji}</div>
-            <div className="dbot-workspace-card__content">
-                <div className="dbot-workspace-card__header">
-                    <div className="dbot-workspace-card__name">
-                        {strategyNameRef.current}
-                    </div>
-                    <button className="dbot-workspace-card__action">
-                        <span>Load</span>
-                        <div className="dbot-workspace-card__arrow">→</div>
-                    </button>
-                </div>
-                <div className="dbot-workspace-card__description">
-                    {botDescription}
-                </div>
-                <div className="dbot-workspace-card__metrics">
-                    <div className="dbot-workspace-card__meter">
-                        <div
-                            className="dbot-workspace-card__meter-fill"
-                            style={{ width: `${perfPercent}%` }}
-                        />
-                        <div className="dbot-workspace-card__meter-shine" />
-                    </div>
-                    <div className="dbot-workspace-card__percent">{perfPercent}%</div>
-                </div>
-                <div className="dbot-workspace-card__preview" aria-hidden>
-                    <div className="dbot-workspace-card__preview-line"></div>
-                    <div className="dbot-workspace-card__preview-line"></div>
-                    <div className="dbot-workspace-card__preview-line"></div>
-                    <div className="dbot-workspace-card__preview-line"></div>
-                    <div className="dbot-workspace-card__preview-line"></div>
+            {/* PREMIUM badge - top right */}
+            <div className='dbot-gold-card__premium'>★ PREMIUM</div>
+
+            {/* Header */}
+            <div className='dbot-gold-card__header'>
+                <div className='dbot-gold-card__icon'>⚡</div>
+                <div className='dbot-gold-card__meta'>
+                    <div className='dbot-gold-card__name'>{strategyNameRef.current}</div>
+                    <div className='dbot-gold-card__timeframe'>Timeframe: {timeframe}</div>
                 </div>
             </div>
-            <div className="dbot-workspace-card__shine"></div>
+
+            {/* Description */}
+            <div className='dbot-gold-card__description'>
+                {BOT_DESCRIPTIONS[index % BOT_DESCRIPTIONS.length]}
+            </div>
+
+            {/* Win Rate Meter */}
+            <div className='dbot-gold-card__stats'>
+                <div className='dbot-gold-card__stat-label'>
+                    <span>Win Rate</span>
+                    <span className='dbot-gold-card__win-rate'>{winRate}%</span>
+                </div>
+                <div className='dbot-gold-card__meter'>
+                    <div className='dbot-gold-card__meter-fill' style={{ width: `${winRate}%` }}>
+                        <div className='dbot-gold-card__meter-shine' />
+                    </div>
+                </div>
+            </div>
+
+            {/* Full-width Load Button */}
+            <button className='dbot-gold-card__load-btn' onClick={handleLoad}>
+                <span className='dbot-gold-card__load-icon'>🚀</span>
+                <span>Load Bot</span>
+                <span className='dbot-gold-card__load-arrow'>→</span>
+            </button>
+
+            {/* Gold shine sweep */}
+            <div className='dbot-gold-card__shine' />
         </div>
     );
 });

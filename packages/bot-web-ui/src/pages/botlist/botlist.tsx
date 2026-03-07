@@ -61,14 +61,14 @@ const DashboardBotList = observer(() => {
                     >
                         <h1 className={styles.title}>
                             <span className={`${styles.titleText} ${isHoveringTitle ? styles.titleHover : ''}`}>
-                                <Localize i18n_default_text="Bot Collection" />
+                                <Localize i18n_default_text="Free Bots" />
                             </span>
                             <span className={`${styles.emoji} ${isHoveringTitle ? styles.emojiHover : ''}`}>
-                                🤖
+                                ⚡
                             </span>
                         </h1>
                         <p className={styles.subtitle}>
-                            <Localize i18n_default_text="Manage your automated trading strategies" />
+                            <Localize i18n_default_text="Premium automated trading strategies — load and deploy instantly" />
                         </p>
                     </div>
 
