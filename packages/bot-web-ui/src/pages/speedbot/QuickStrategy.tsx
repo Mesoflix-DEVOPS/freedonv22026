@@ -249,7 +249,10 @@ const QuickStrategy = observer(() => {
             <div className="qs-header">
                 <div className="qs-market-info">
                     <div className="qs-price-display">
-                        {currentPrice ? currentPrice.toFixed(pipSize) : <Loading />}
+                        {currentPrice !== null && currentPrice !== undefined ?
+                            currentPrice.toFixed(pipSize) :
+                            <Loading is_fullscreen={false} />
+                        }
                     </div>
                 </div>
                 <div className="qs-market-selector">

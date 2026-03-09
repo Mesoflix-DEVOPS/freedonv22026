@@ -13,15 +13,16 @@ export const AnalysisHeader = observer(({ digit_counts, last_digit }: { digit_co
     // Calculate ranks
     const sortedIndices = digit_counts
         .map((count, index) => ({ index, count }))
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => (b.count || 0) - (a.count || 0));
 
-    const rankHighest = sortedIndices[0].index;
-    const rankSecondHighest = sortedIndices[1].index;
-    const rankLowest = sortedIndices[9].index;
-    const rankPreLowest = sortedIndices[8].index;
+    // Safety check for empty or short arrays
+    const rankHighest = sortedIndices.length > 0 ? sortedIndices[0].index : 0;
+    const rankSecondHighest = sortedIndices.length > 1 ? sortedIndices[1].index : 1;
+    const rankLowest = sortedIndices.length > 9 ? sortedIndices[9].index : (sortedIndices.length > 0 ? sortedIndices[sortedIndices.length - 1].index : 9);
+    const rankPreLowest = sortedIndices.length > 8 ? sortedIndices[8].index : (sortedIndices.length > 1 ? sortedIndices[sortedIndices.length - 2].index : 8);
 
-    const highestPercent = ((digit_counts[rankHighest] / total) * 100).toFixed(2);
-    const lowestPercent = ((digit_counts[rankLowest] / total) * 100).toFixed(2);
+    const highestPercent = sortedIndices.length > 0 ? ((digit_counts[rankHighest] / total) * 100).toFixed(2) : "0.00";
+    const lowestPercent = sortedIndices.length > 9 ? ((digit_counts[rankLowest] / total) * 100).toFixed(2) : (sortedIndices.length > 0 ? ((digit_counts[sortedIndices[sortedIndices.length - 1].index] / total) * 100).toFixed(2) : "0.00");
 
     return (
         <div className="qs-analysis-header">
