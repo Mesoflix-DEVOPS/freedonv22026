@@ -15,7 +15,6 @@ const TokenManager: React.FC = observer(() => {
     const [isPaused, setIsPaused] = useState(false);
 
     // Advanced features
-    const [assets, setAssets] = useState('');
     const [maxStake, setMaxStake] = useState(100);
     const [minStake, setMinStake] = useState(0.35);
 
@@ -126,9 +125,7 @@ const TokenManager: React.FC = observer(() => {
                 setToast({ type: 'err', text: 'Please login to Deriv first' });
                 return;
             }
-            const assetList = assets ? assets.split(',').map((s: string) => s.trim()) : undefined;
             const res = await copy_trading_logic.startCopying(client.loginid, {
-                assets: assetList,
                 max_trade_stake: maxStake,
                 min_trade_stake: minStake,
             });
@@ -273,19 +270,6 @@ const TokenManager: React.FC = observer(() => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FaChartLine style={{ color: '#2196F3' }} />
-                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#666' }}>Target Assets (Comma Separated)</label>
-                            </div>
-                            <input
-                                placeholder="e.g. R_10,R_100,1HZ100V"
-                                className="qs-input"
-                                value={assets}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssets(e.target.value)}
-                            />
-                            <span style={{ fontSize: '11px', color: '#999' }}>Leave empty to copy all assets</span>
-                        </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
