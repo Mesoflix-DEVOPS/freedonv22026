@@ -159,19 +159,11 @@ export const ConfigurationPanel = observer(({
     onStop,
     isOpen,
     onToggle,
-    copierToken,
-    setCopierToken,
-    isCopying,
-    onStartCopying,
-    onStopCopying,
-    copierAssets,
-    setCopierAssets,
-    copierMaxStake,
-    setCopierMaxStake,
-    copierMinStake,
-    setCopierMinStake,
-    copierTradeTypes,
-    setCopierTradeTypes
+    is_running,
+    onRun,
+    onStop,
+    isOpen,
+    onToggle
 }: any) => {
     return (
         <div className={`qs-config-panel ${isOpen ? 'open' : 'closed'}`}>
@@ -285,75 +277,6 @@ export const ConfigurationPanel = observer(({
                                     <option value={300}>5 Minutes</option>
                                 </select>
                             </div>
-                        </div>
-
-                        {/* Copy Trading Section */}
-                        <div className="qs-config-divider" />
-
-                        <Text size="s" weight="bold" family="outfit" color="prominent">
-                            <Localize i18n_default_text="COPYTRADING (API)" />
-                        </Text>
-
-                        <div className="qs-config-item">
-                            <Text size="xs" weight="bold" family="outfit" color="less-prominent">
-                                <Localize i18n_default_text="COPIER API TOKEN" />
-                            </Text>
-                            <Input
-                                className="dc-input"
-                                type="password"
-                                value={copierToken}
-                                onChange={(e: any) => setCopierToken(e.target.value)}
-                                placeholder="Enter Copier API Token"
-                            />
-                        </div>
-
-                        <div className="qs-config-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                            <div className="qs-config-item">
-                                <Text size="xs" weight="bold" family="outfit" color="less-prominent">
-                                    <Localize i18n_default_text="MAX STAKE" />
-                                </Text>
-                                <Input
-                                    className="dc-input"
-                                    type="number"
-                                    value={copierMaxStake}
-                                    onChange={(e: any) => setCopierMaxStake(e.target.value)}
-                                />
-                            </div>
-                            <div className="qs-config-item">
-                                <Text size="xs" weight="bold" family="outfit" color="less-prominent">
-                                    <Localize i18n_default_text="MIN STAKE" />
-                                </Text>
-                                <Input
-                                    className="dc-input"
-                                    type="number"
-                                    value={copierMinStake}
-                                    onChange={(e: any) => setCopierMinStake(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="qs-config-item">
-                            <Text size="xs" weight="bold" family="outfit" color="less-prominent">
-                                <Localize i18n_default_text="ASSETS (COMMA SEPARATED)" />
-                            </Text>
-                            <Input
-                                className="dc-input"
-                                value={copierAssets}
-                                onChange={(e: any) => setCopierAssets(e.target.value)}
-                                placeholder="e.g. R_10,R_50,R_100"
-                            />
-                        </div>
-
-                        <div className="qs-action-buttons" style={{ marginTop: '10px' }}>
-                            {!isCopying ? (
-                                <button className="qs-copy-btn" onClick={onStartCopying}>
-                                    <Localize i18n_default_text="START COPYING" />
-                                </button>
-                            ) : (
-                                <button className="qs-stop-copy-btn" onClick={onStopCopying}>
-                                    <Localize i18n_default_text="STOP COPYING" />
-                                </button>
-                            )}
                         </div>
                     </div>
 

@@ -9,7 +9,6 @@ import { AnalysisHeader, ConfigurationPanel, TransactionTable, EvenOddAnalysis, 
 import { MdSettings } from 'react-icons/md';
 import { FaClock } from 'react-icons/fa';
 import { trading_logic, TradeParams } from './TradingLogic';
-import { copy_trading_logic } from './CopyTradingLogic';
 import './quick-strategy.scss';
 
 // Symbols and Groups interface
@@ -47,11 +46,6 @@ const QuickStrategy = observer(() => {
 
     // UI state for refactored layout
     const [isConfigOpen, setIsConfigOpen] = useState(false);
-    const [copierToken, setCopierToken] = useState('');
-    const [isCopying, setIsCopying] = useState(false);
-    const [copierAssets, setCopierAssets] = useState('');
-    const [copierMaxStake, setCopierMaxStake] = useState(100);
-    const [copierMinStake, setCopierMinStake] = useState(0.35);
 
     // Internal Logic State
     const [totalProfit, setTotalProfit] = useState(0);
@@ -160,33 +154,6 @@ const QuickStrategy = observer(() => {
         setCurrentRunCount(0);
     };
 
-    const handleStartCopying = async () => {
-        if (!copierToken) {
-            alert('Please enter a copier API token');
-            return;
-        }
-        copy_trading_logic.setCopierToken(copierToken);
-        const assets = copierAssets ? copierAssets.split(',').map(s => s.trim()) : undefined;
-        const { error } = await copy_trading_logic.startCopying(client.loginid, {
-            assets,
-            max_trade_stake: copierMaxStake,
-            min_trade_stake: copierMinStake,
-        });
-        if (error) {
-            alert(`Failed to start copying: ${error.message || 'Unknown error'}`);
-        } else {
-            setIsCopying(true);
-        }
-    };
-
-    const handleStopCopying = async () => {
-        const { error } = await copy_trading_logic.stopCopying(client.loginid);
-        if (error) {
-            alert(`Failed to stop copying: ${error.message || 'Unknown error'}`);
-        } else {
-            setIsCopying(false);
-        }
-    };
 
     // Countdown Timer Effect
     useEffect(() => {
@@ -303,17 +270,6 @@ const QuickStrategy = observer(() => {
                     onStop={handleStop}
                     isOpen={isConfigOpen}
                     onToggle={() => setIsConfigOpen(!isConfigOpen)}
-                    copierToken={copierToken}
-                    setCopierToken={setCopierToken}
-                    isCopying={isCopying}
-                    onStartCopying={handleStartCopying}
-                    onStopCopying={handleStopCopying}
-                    copierAssets={copierAssets}
-                    setCopierAssets={setCopierAssets}
-                    copierMaxStake={copierMaxStake}
-                    setCopierMaxStake={setCopierMaxStake}
-                    copierMinStake={copierMinStake}
-                    setCopierMinStake={setCopierMinStake}
                 />
 
                 <TransactionTable trades={trades} />

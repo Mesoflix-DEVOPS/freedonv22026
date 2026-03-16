@@ -191,10 +191,13 @@ html {
         }
 
         &.open {
-            max-height: 90vh; // Increased to accommodate more settings
+            max-height: calc(100vh - 120px); // Responsive max height
+            display: flex;
+            flex-direction: column;
 
             .qs-config-content {
                 opacity: 1;
+                flex: 1; // Allow content to take available space
             }
         }
 
@@ -215,7 +218,19 @@ html {
             padding: 24px;
             transition: opacity 0.3s;
             overflow-y: auto;
-            max-height: 70vh;
+            flex: 1;
+            min-height: 0; // Fixes nested flex scrolling
+            scrollbar-width: thin;
+            scrollbar-color: var(--glass-border) transparent;
+
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background: var(--glass-border);
+                border-radius: 10px;
+            }
 
             .qs-config-section {
                 display: flex;
@@ -343,23 +358,6 @@ html {
                         transform: translateY(-2px);
                         box-shadow: 0 12px 28px rgba(255, 77, 77, 0.4);
                     }
-                }
-
-                &.qs-copy-btn {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid var(--primary-color);
-                    color: var(--primary-color);
-
-                    &:hover {
-                        background: var(--primary-color);
-                        color: #06090f;
-                    }
-                }
-
-                &.qs-stop-copy-btn {
-                    background: rgba(255, 77, 77, 0.1);
-                    border: 1px solid #ff4d4d;
-                    color: #ff4d4d;
                 }
             }
         }
