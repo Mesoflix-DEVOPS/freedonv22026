@@ -4,19 +4,20 @@ import { observer } from 'mobx-react-lite';
 import { reaction } from 'mobx';
 import { useStore } from '@deriv/stores';
 import { useDBotStore } from 'Stores/useDBotStore';
-import styles from './risk-manager.scss';
+import './risk-manager.scss';
 
 const useTradeActivity = (onTargetMet: (type: 'TP' | 'SL', profit: number) => void) => {
-    const { summary_card } = useDBotStore();
+    const stores = useDBotStore();
+    const summary_card = stores?.summary_card;
 
     useEffect(() => {
+        if (!summary_card) return;
         const dispose = reaction(
             () => summary_card?.profit_loss,
             (profit: number) => {
                 if (profit === undefined || profit === null) return;
 
                 // Logic to check against active plans
-                // For demonstration, we'll check if profit > 10 or profit < -5
                 if (profit >= 10) {
                     onTargetMet('TP', profit);
                 } else if (profit <= -5) {
@@ -38,8 +39,12 @@ const RiskManager: React.FC = observer(() => {
 
     // Load plans from local storage
     useEffect(() => {
-        const savedPlans = localStorage.getItem('trading_plans');
-        if (savedPlans) setPlans(JSON.parse(savedPlans));
+        try {
+            const savedPlans = localStorage.getItem('trading_plans');
+            if (savedPlans) setPlans(JSON.parse(savedPlans));
+        } catch (e) {
+            console.error('Error loading plans:', e);
+        }
     }, []);
 
     // Save plans to local storage
@@ -99,39 +104,39 @@ const RiskManager: React.FC = observer(() => {
     const stopLoss = isCalculated ? (Number(capital) * 0.1).toFixed(2) : '0.00';
 
     return (
-        <div className={styles.riskManagerContainer}>
-            <header className={styles.header}>
+        <div className="riskManagerContainer">
+            <header className="header">
                 <h1>Risk Manager</h1>
-                <p className={styles.subtitle}>Protect your capital with smart calculations</p>
+                <p className="subtitle">Protect your capital with smart calculations</p>
             </header>
 
-            <div className={styles.tabs}>
+            <div className="tabs">
                 <div
-                    className={`${styles.tab} ${activeTab === 'calculator' ? styles.active : ''}`}
+                    className={`tab ${activeTab === 'calculator' ? 'active' : ''}`}
                     onClick={() => setActiveTab('calculator')}
                 >
                     <FaCalculator style={{ marginRight: '8px' }} /> Calculator
                 </div>
                 <div
-                    className={`${styles.tab} ${activeTab === 'journal' ? styles.active : ''}`}
+                    className={`tab ${activeTab === 'journal' ? 'active' : ''}`}
                     onClick={() => setActiveTab('journal')}
                 >
                     <FaBook style={{ marginRight: '8px' }} /> Personal Assistant
                 </div>
             </div>
 
-            <main className={styles.content}>
+            <main className="content">
                 {activeTab === 'calculator' ? (
-                    <div className={`${styles.card} ${styles.calculatorGrid}`}>
-                        <div className={styles.inputSection}>
-                            <div className={styles.display}>
+                    <div className="card calculatorGrid">
+                        <div className="inputSection">
+                            <div className="display">
                                 {capital ? `$${capital}` : '$0'}
                             </div>
-                            <div className={styles.keypad}>
+                            <div className="keypad">
                                 {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'].map(k => (
                                     <button
                                         key={k}
-                                        className={`${styles.key} ${k === '⌫' ? styles.delete : ''}`}
+                                        className={`key ${k === '⌫' ? 'delete' : ''}`}
                                         onClick={() => k === '⌫' ? deleteLast() : appendNumber(k)}
                                     >
                                         {k}
@@ -154,24 +159,24 @@ const RiskManager: React.FC = observer(() => {
                             </div>
                         </div>
 
-                        <div className={styles.resultsSection}>
+                        <div className="resultsSection">
                             <h3 style={{ marginBottom: '20px' }}>Strategy Recommendation</h3>
-                            <div className={styles.resultsGrid}>
-                                <div className={styles.resultItem} style={{ background: 'rgba(56, 189, 248, 0.1)', borderLeft: '4px solid #38bdf8' }}>
-                                    <span className={styles.label}>Safe Stake</span>
-                                    <span className={styles.value}>${stakeAmount}</span>
+                            <div className="resultsGrid">
+                                <div className="resultItem" style={{ background: 'rgba(56, 189, 248, 0.1)', borderLeft: '4px solid #38bdf8' }}>
+                                    <span className="label">Safe Stake</span>
+                                    <span className="value">${stakeAmount}</span>
                                 </div>
-                                <div className={styles.resultItem} style={{ background: 'rgba(74, 222, 128, 0.1)', borderLeft: '4px solid #4ade80' }}>
-                                    <span className={styles.label}>Take Profit Target</span>
-                                    <span className={styles.value}>${takeProfit}</span>
+                                <div className="resultItem" style={{ background: 'rgba(74, 222, 128, 0.1)', borderLeft: '4px solid #4ade80' }}>
+                                    <span className="label">Take Profit Target</span>
+                                    <span className="value">${takeProfit}</span>
                                 </div>
-                                <div className={styles.resultItem} style={{ background: 'rgba(248, 113, 113, 0.1)', borderLeft: '4px solid #f87171' }}>
-                                    <span className={styles.label}>Stop Loss Limit</span>
-                                    <span className={styles.value}>${stopLoss}</span>
+                                <div className="resultItem" style={{ background: 'rgba(248, 113, 113, 0.1)', borderLeft: '4px solid #f87171' }}>
+                                    <span className="label">Stop Loss Limit</span>
+                                    <span className="value">${stopLoss}</span>
                                 </div>
-                                <div className={styles.resultItem} style={{ background: 'rgba(129, 140, 248, 0.1)', borderLeft: '4px solid #818cf8' }}>
-                                    <span className={styles.label}>Max Martingale</span>
-                                    <span className={styles.value}>3 Steps</span>
+                                <div className="resultItem" style={{ background: 'rgba(129, 140, 248, 0.1)', borderLeft: '4px solid #818cf8' }}>
+                                    <span className="label">Max Martingale</span>
+                                    <span className="value">3 Steps</span>
                                 </div>
                             </div>
 
@@ -197,8 +202,8 @@ const RiskManager: React.FC = observer(() => {
                         </div>
                     </div>
                 ) : (
-                    <div className={styles.journalSection}>
-                        <div className={styles.controls}>
+                    <div className="journalSection">
+                        <div className="controls">
                             <h3>Active Trading Plans ({plans.length})</h3>
                             <button
                                 onClick={() => setActiveTab('calculator')}
@@ -208,7 +213,7 @@ const RiskManager: React.FC = observer(() => {
                             </button>
                         </div>
 
-                        <div className={styles.planGrid}>
+                        <div className="planGrid">
                             {plans.length === 0 ? (
                                 <div style={{ textAlign: 'center', gridColumn: '1/-1', padding: '60px', color: '#94a3b8' }}>
                                     <FaBook size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
@@ -216,7 +221,7 @@ const RiskManager: React.FC = observer(() => {
                                 </div>
                             ) : (
                                 plans.map(plan => (
-                                    <div key={plan.id} className={styles.planCard}>
+                                    <div key={plan.id} className="planCard">
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontWeight: '700' }}>{plan.name}</span>
                                             <FaTrash
@@ -231,7 +236,7 @@ const RiskManager: React.FC = observer(() => {
                                             <div style={{ width: `${plan.progress}%`, height: '100%', background: '#38bdf8' }}></div>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span className={styles.status} style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80' }}>
+                                            <span className="status" style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80' }}>
                                                 {plan.status}
                                             </span>
                                             <span style={{ fontSize: '13px', fontWeight: '600' }}>{plan.progress}%</span>
@@ -245,7 +250,7 @@ const RiskManager: React.FC = observer(() => {
             </main>
 
             {notification && (
-                <div className={styles.notification}>
+                <div className="notification">
                     {notification.type === 'TP' ? (
                         <FaCheckCircle color="#4ade80" size={20} />
                     ) : (

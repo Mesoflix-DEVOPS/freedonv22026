@@ -286,7 +286,7 @@ const AppWrapper = observer(() => {
                                     Risk Manager
                                 </span>
                             }
-                            id='id-risk-manager'
+                            id={TAB_IDS[DBOT_TABS.RISK_MANAGER]}
                         >
                             <RiskManagementCalculator />
                         </div>
