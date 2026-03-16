@@ -17,7 +17,7 @@ interface DTraderAutoLoginProps {
 
 const DTraderAutoLogin = observer(({
     dtraderUrl = 'https://deriv-dtrader.vercel.app/dtrader',
-    appId = 118970,
+    appId = 105230,
     defaultSymbol = '1HZ100V',
 }: DTraderAutoLoginProps) => {
     const { client } = useStore();

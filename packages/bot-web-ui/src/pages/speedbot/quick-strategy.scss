@@ -40,6 +40,7 @@ html {
     overflow-x: hidden;
     overflow-y: auto; // Enable internal scrolling
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
 
     @mixin glass-panel {
         background: var(--glass-bg);
@@ -138,6 +139,10 @@ html {
             display: none;
         }
 
+        margin: 8px 0; // Add margin to prevent overlapping
+        position: relative;
+        z-index: 10;
+
         .qs-tab {
             @include glass-panel;
             flex-shrink: 0;
@@ -159,6 +164,16 @@ html {
                 color: #06090f;
                 border-color: var(--primary-color);
                 box-shadow: 0 0 25px var(--primary-glow);
+            }
+        }
+
+        @media (max-width: 600px) {
+            padding: 4px 5px;
+            gap: 6px;
+            
+            .qs-tab {
+                padding: 10px 16px;
+                font-size: 13px;
             }
         }
     }
@@ -352,6 +367,14 @@ html {
         width: 100%;
         max-width: 450px;
         flex-shrink: 0;
+        max-height: 80vh; // Prevent it from being too tall
+        overflow-y: auto; // Allow internal scrolling if content overflows
+        padding-bottom: 40px; // Extra padding for buttons
+
+        @media (max-width: 1024px) {
+            max-width: 100%;
+            max-height: none; // Allow it to expand on mobile, container will scroll
+        }
 
         .qs-config-section {
             display: flex;
