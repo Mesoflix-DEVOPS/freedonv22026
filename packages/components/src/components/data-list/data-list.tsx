@@ -115,103 +115,134 @@ const DataList = React.memo(
             const action_desc = typeof action === 'object' ? action : undefined;
             const row_key = keyMapper?.(row) || key;
 
+            const getContent = ({ measure }: GetContentType = {}) => (
+                <DataListRow
+                    //@ts-expect-error needs refactor
+                    action_desc={action_desc}
+                    destination_link={destination_link}
+                    is_new_row={!items_transition_map_ref.current[row_key]}
+                    is_scrolling={is_scrolling}
+                    measure={measure}
+                    passthrough={passthrough}
+                    row_gap={row_gap}
+                    row_key={row_key}
+                    row={row}
+                    rowRenderer={other_props.rowRenderer}
+                    is_dynamic_height={is_dynamic_height}
+                />
+            );
+
+            return is_dynamic_height && cache.current ? (
+                <CellMeasurer
+                    cache={cache.current}
+                    columnIndex={0}
+                    key={row_key}
+                    parent={parent}
+                    rowIndex={index}
+                >
+                    {getContent}
+                </CellMeasurer>
+            ) : (
+                <div key={key} style={style}>
+                    {getContent()}
+                </div>
             );
         };
 
-const scroll_timeout_ref = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+        const scroll_timeout_ref = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-const handleScroll = (ev: Partial<React.UIEvent<HTMLDivElement>>) => {
-    if (scroll_timeout_ref.current) {
-        clearTimeout(scroll_timeout_ref.current);
-    }
-    if (!is_scrolling) {
-        setIsScrolling(true);
-    }
-    scroll_timeout_ref.current = setTimeout(() => {
-        if (!is_loading) {
-            setIsScrolling(false);
+        const handleScroll = (ev: Partial<React.UIEvent<HTMLDivElement>>) => {
+            if (scroll_timeout_ref.current) {
+                clearTimeout(scroll_timeout_ref.current);
+            }
+            if (!is_scrolling) {
+                setIsScrolling(true);
+            }
+            scroll_timeout_ref.current = setTimeout(() => {
+                if (!is_loading) {
+                    setIsScrolling(false);
+                }
+            }, 200);
+
+            setScrollTop((ev.target as HTMLElement).scrollTop);
+            if (typeof onScroll === 'function') {
+                onScroll(ev as React.UIEvent<HTMLDivElement>);
+            }
+        };
+
+        React.useEffect(() => {
+            return () => {
+                if (scroll_timeout_ref.current) {
+                    clearTimeout(scroll_timeout_ref.current);
+                }
+            };
+        }, []);
+
+        const setRef = (ref: MeasuredCellParent) => {
+            list_ref.current = ref;
+            setListRef?.(ref);
+        };
+
+        if (is_loading) {
+            return <div />;
         }
-    }, 200);
-
-    setScrollTop((ev.target as HTMLElement).scrollTop);
-    if (typeof onScroll === 'function') {
-        onScroll(ev as React.UIEvent<HTMLDivElement>);
-    }
-};
-
-React.useEffect(() => {
-    return () => {
-        if (scroll_timeout_ref.current) {
-            clearTimeout(scroll_timeout_ref.current);
-        }
-    };
-}, []);
-
-const setRef = (ref: MeasuredCellParent) => {
-    list_ref.current = ref;
-    setListRef?.(ref);
-};
-
-if (is_loading) {
-    return <div />;
-}
-return (
-    <div
-        data-testid='dt_data_list'
-        className={classNames(className, 'data-list', {
-            [`${className}__data-list`]: className,
-        })}
-    >
-        <div className='data-list__body-wrapper'>
-            <div className={classNames('data-list__body', { [`${className}__data-list-body`]: className })}>
-                <AutoSizer>
-                    {({ width, height }) => (
-                        // Don't remove `TransitionGroup`. When `TransitionGroup` is removed, transition life cycle events like `onEntered` won't be fired sometimes on it's `CSSTransition` children
-                        <TransitionGroup style={{ height, width }}>
-                            <ThemedScrollbars onScroll={handleScroll} autohide is_bypassed={isMobile()}>
-                                <List
-                                    className={className}
-                                    deferredMeasurementCache={cache?.current}
-                                    height={height}
-                                    onRowsRendered={onRowsRendered}
-                                    overscanRowCount={overscanRowCount || 1}
-                                    ref={(ref: MeasuredCellParent) => setRef(ref)}
-                                    rowCount={data_source.length}
-                                    rowHeight={
-                                        is_dynamic_height && cache?.current?.rowHeight
-                                            ? cache?.current?.rowHeight
-                                            : getRowSize || 0
-                                    }
-                                    rowRenderer={rowRenderer}
-                                    scrollingResetTimeInterval={0}
-                                    width={width}
-                                    {...(isDesktop()
-                                        ? { scrollTop: scroll_top, autoHeight: true }
-                                        : {
-                                            onScroll: target =>
-                                                handleScroll({ target } as unknown as Partial<
-                                                    React.UIEvent<HTMLDivElement>
-                                                >),
-                                        })}
-                                />
-                            </ThemedScrollbars>
-                        </TransitionGroup>
-                    )}
-                </AutoSizer>
-            </div>
-            {children}
-        </div>
-        {footer && (
+        return (
             <div
-                className={classNames('data-list__footer', {
-                    [`${className}__data-list-footer`]: className,
+                data-testid='dt_data_list'
+                className={classNames(className, 'data-list', {
+                    [`${className}__data-list`]: className,
                 })}
             >
-                {footerRowRenderer()}
+                <div className='data-list__body-wrapper'>
+                    <div className={classNames('data-list__body', { [`${className}__data-list-body`]: className })}>
+                        <AutoSizer>
+                            {({ width, height }) => (
+                                // Don't remove `TransitionGroup`. When `TransitionGroup` is removed, transition life cycle events like `onEntered` won't be fired sometimes on it's `CSSTransition` children
+                                <TransitionGroup style={{ height, width }}>
+                                    <ThemedScrollbars onScroll={handleScroll} autohide is_bypassed={isMobile()}>
+                                        <List
+                                            className={className}
+                                            deferredMeasurementCache={cache?.current}
+                                            height={height}
+                                            onRowsRendered={onRowsRendered}
+                                            overscanRowCount={overscanRowCount || 1}
+                                            ref={(ref: MeasuredCellParent) => setRef(ref)}
+                                            rowCount={data_source.length}
+                                            rowHeight={
+                                                is_dynamic_height && cache?.current?.rowHeight
+                                                    ? cache?.current?.rowHeight
+                                                    : getRowSize || 0
+                                            }
+                                            rowRenderer={rowRenderer}
+                                            scrollingResetTimeInterval={0}
+                                            width={width}
+                                            {...(isDesktop()
+                                                ? { scrollTop: scroll_top, autoHeight: true }
+                                                : {
+                                                    onScroll: target =>
+                                                        handleScroll({ target } as unknown as Partial<
+                                                            React.UIEvent<HTMLDivElement>
+                                                        >),
+                                                })}
+                                        />
+                                    </ThemedScrollbars>
+                                </TransitionGroup>
+                            )}
+                        </AutoSizer>
+                    </div>
+                    {children}
+                </div>
+                {footer && (
+                    <div
+                        className={classNames('data-list__footer', {
+                            [`${className}__data-list-footer`]: className,
+                        })}
+                    >
+                        {footerRowRenderer()}
+                    </div>
+                )}
             </div>
-        )}
-    </div>
-);
+        );
     }
 ) as React.MemoExoticComponent<(props: TDataList) => JSX.Element> & { Cell: typeof DataListCell };
 
