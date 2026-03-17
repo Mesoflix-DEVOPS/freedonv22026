@@ -196,15 +196,8 @@ const TokenManager: React.FC = observer(() => {
         setToast({ type: 'ok', text: next ? 'This tab is now the Master' : 'Master mode disabled' });
     };
 
-    const handleBecomeTrader = async () => {
-        const t = traderToken.trim();
-        if (!t) {
-            setToast({ type: 'err', text: 'Please enter a Trader Token' });
-            return;
-        }
-
-        setToast({ type: 'ok', text: 'Verifying token & updating settings...' });
-
+    const handleBecomeTrader = async (useToken = false) => {
+        let res;
         const profileData = {
             account_opening_reason: traderSettings?.account_opening_reason || 'Speculative',
             address_city: traderSettings?.address_city || 'Update Required',
@@ -216,15 +209,31 @@ const TokenManager: React.FC = observer(() => {
             tax_residence: traderSettings?.tax_residence || 'hk',
         };
 
-        const res = await copy_trading_logic.enableCopyingForToken(t, profileData);
+        if (useToken) {
+            const t = traderToken.trim();
+            if (!t) {
+                setToast({ type: 'err', text: 'Please enter a Trader Token' });
+                return;
+            }
+            setToast({ type: 'ok', text: 'Verifying external token...' });
+            res = await copy_trading_logic.enableCopyingForToken(t, profileData);
+        } else {
+            if (!client.is_logged_in) {
+                setToast({ type: 'err', text: 'Please login first' });
+                return;
+            }
+            setToast({ type: 'ok', text: 'Enabling sharing for your active account...' });
+            res = await copy_trading_logic.becomeTrader(profileData);
+        }
+
         if (res.error) {
             setToast({ type: 'err', text: `Failed: ${res.error.message || 'Unknown error'}` });
         } else {
             setIsTraderEnabled(true);
-            setToast({ type: 'ok', text: 'SUCCESS! Copy-trading is now ALLOWED on this account.' });
+            setToast({ type: 'ok', text: 'SUCCESS! Copy-trading is now ALLOWED.' });
             setTraderToken('');
 
-            // If the current account matches the token account, refresh settings
+            // Refresh settings for the logged-in account
             if (client.is_logged_in) {
                 const refresh = await copy_trading_logic.getAccountSettings();
                 if (refresh.data) {
@@ -599,35 +608,65 @@ const TokenManager: React.FC = observer(() => {
                         </p>
                     </div>
 
-                    <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <label style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>Enter Trader API Token to Enable:</label>
-                        <input
-                            type="password"
-                            placeholder="Enter the API token to enable as Trader"
-                            className="qs-input"
-                            value={traderToken}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTraderToken(e.target.value)}
-                        />
-                        <button
-                            onClick={handleBecomeTrader}
-                            style={{
-                                width: '100%',
-                                backgroundColor: '#4CAF50',
-                                color: 'white',
-                                border: 'none',
-                                padding: '16px',
-                                borderRadius: '10px',
-                                fontWeight: '700',
-                                fontSize: '16px',
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 14px rgba(76, 175, 80, 0.4)',
-                                transition: 'all 0.3s',
-                                opacity: !traderToken ? 0.6 : 1,
-                            }}
-                            disabled={!traderToken}
-                        >
-                            Verify & Enable "Allow Copiers"
-                        </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                        {/* Section 1: Active Account */}
+                        <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '10px', border: '1px solid #eee' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#1a237e' }}>Active Account ({client.loginid || 'Not logged in'})</h4>
+                            <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
+                                Use this to enable sharing on the account you are currently logged into. No token required.
+                            </p>
+                            <button
+                                onClick={() => handleBecomeTrader(false)}
+                                style={{
+                                    width: '100%',
+                                    backgroundColor: isTraderEnabled ? '#e0e0e0' : '#2196F3',
+                                    color: isTraderEnabled ? '#999' : 'white',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600',
+                                    cursor: isTraderEnabled ? 'default' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                disabled={isTraderEnabled || !client.is_logged_in}
+                            >
+                                {isTraderEnabled ? 'Enabled for My Account' : 'Enable Sharing for Me'}
+                            </button>
+                        </div>
+
+                        {/* Section 2: External Account */}
+                        <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '10px', border: '1px solid #eee' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#1a237e' }}>Other/External Account</h4>
+                            <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+                                Enter the API token of an external account to allow copiers on it.
+                            </p>
+                            <input
+                                type="password"
+                                placeholder="Enter external API token"
+                                className="qs-input"
+                                value={traderToken}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTraderToken(e.target.value)}
+                                style={{ marginBottom: '10px', height: '40px' }}
+                            />
+                            <button
+                                onClick={() => handleBecomeTrader(true)}
+                                style={{
+                                    width: '100%',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600',
+                                    cursor: !traderToken ? 'not-allowed' : 'pointer',
+                                    opacity: !traderToken ? 0.6 : 1,
+                                    transition: 'all 0.2s'
+                                }}
+                                disabled={!traderToken}
+                            >
+                                Enable via Token
+                            </button>
+                        </div>
                     </div>
 
                     <div style={{ marginTop: '25px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontSize: '14px' }}>
