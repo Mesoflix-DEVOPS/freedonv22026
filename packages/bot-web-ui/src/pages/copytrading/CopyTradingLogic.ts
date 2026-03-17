@@ -102,17 +102,15 @@ class CopyTradingLogic {
         }
     }
 
-    async becomeTrader(profileData: any = {}) {
+    async becomeTrader() {
         if (!api_base.api) return { error: { message: 'API not initialized' } };
 
-        // mandatory fields often required by set_settings on Deriv
         const request = {
             set_settings: 1,
             allow_copiers: 1,
-            ...profileData
         };
 
-        console.log('[CopyTrading] Enabling trader mode:', request);
+        console.log('[CopyTrading] Enabling trader mode (minimal request):', request);
 
         try {
             const response = await api_base.api.send(request);
@@ -127,14 +125,13 @@ class CopyTradingLogic {
         }
     }
 
-    async enableCopyingForToken(token: string, profileData: any = {}) {
+    async enableCopyingForToken(token: string) {
         const tempApi = generateDerivApiInstance();
         try {
             await tempApi.authorize(token);
             const request = {
                 set_settings: 1,
                 allow_copiers: 1,
-                ...profileData
             };
             const response = await tempApi.send(request);
             if (response.error) {
