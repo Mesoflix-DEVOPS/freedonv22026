@@ -119,8 +119,14 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
             togglePositionsDrawer(); // TODO: hide drawer inside logout, once it is a mobx action
         }
 
+        // Clear marketing mode and token-login only on explicit user sign-out
+        const { clearMarketingMode, clearTokenLogin } = require('@deriv/shared');
+        clearMarketingMode();
+        clearTokenLogin();
+
         await oAuthLogout();
     };
+
 
     const closeAccountsDialog = () => {
         toggleAccountsDialog(false);
