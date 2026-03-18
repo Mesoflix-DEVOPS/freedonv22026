@@ -2260,6 +2260,10 @@ export default class ClientStore extends BaseStore {
         localStorage.removeItem('traders_hub_store');
         localStorage.removeItem('trade_store');
 
+        // Clear marketing mode so the next login starts fresh
+        const { clearMarketingMode } = require('@deriv/shared');
+        clearMarketingMode();
+
         // TODO: [add-client-action] - Move logout functionality to client store
         const response = await requestLogout();
 

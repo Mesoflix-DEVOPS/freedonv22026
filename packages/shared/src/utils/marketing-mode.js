@@ -39,3 +39,9 @@ export const updateMaskedBalance = (amount) => {
     localStorage.setItem(MASKED_BALANCE_KEY, updated.toString());
     window.dispatchEvent(new Event('marketing_balance_updated'));
 };
+
+export const clearMarketingMode = () => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(MASKED_BALANCE_KEY);
+};
