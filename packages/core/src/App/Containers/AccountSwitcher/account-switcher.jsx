@@ -202,9 +202,9 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
     const getMarketingLiveBalance = () => {
         const { getMaskedBalance } = require('@deriv/shared');
         let demo_diff = 0;
-        const demo_loginid = Object.keys(accounts).find(id => id.startsWith('VRTC'));
-        if (demo_loginid && accounts[demo_loginid] && accounts[demo_loginid].balance !== undefined) {
-            demo_diff = accounts[demo_loginid].balance - 10000;
+        const demo_loginid = Object.keys(original_accounts).find(id => id.startsWith('VRTC'));
+        if (demo_loginid && original_accounts[demo_loginid] && original_accounts[demo_loginid].balance !== undefined) {
+            demo_diff = original_accounts[demo_loginid].balance - 10000;
         }
         return getMaskedBalance() + demo_diff;
     };
