@@ -36,16 +36,19 @@ type TDataListRow = {
     row: TSource;
 };
 
-const DataListRow = ({
-    action_desc,
-    destination_link,
-    row_gap,
-    row_key,
-    rowRenderer,
-    measure,
-    is_dynamic_height,
-    ...other_props
-}: TDataListRow) => {
+const DataListRow = React.forwardRef((
+    {
+        action_desc,
+        destination_link,
+        row_gap,
+        row_key,
+        rowRenderer,
+        measure,
+        is_dynamic_height,
+        ...other_props
+    }: TDataListRow,
+    ref: React.Ref<HTMLDivElement>
+) => {
     const [show_description, setShowDescription] = React.useState(false);
     const isMounted = useIsMounted();
     const debouncedHideDetails = useDebounce(() => setShowDescription(false), 5000);
@@ -68,7 +71,7 @@ const DataListRow = ({
     }, [show_description, is_dynamic_height, measure]);
 
     return (
-        <div className='data-list__row--wrapper' style={{ paddingBottom: `${row_gap || 0}px` }}>
+        <div ref={ref} className='data-list__row--wrapper' style={{ paddingBottom: `${row_gap || 0}px` }}>
             {destination_link ? (
                 <NavLink
                     className='data-list__item--wrapper'
@@ -109,6 +112,6 @@ const DataListRow = ({
             )}
         </div>
     );
-};
+});
 
 export default React.memo(DataListRow);

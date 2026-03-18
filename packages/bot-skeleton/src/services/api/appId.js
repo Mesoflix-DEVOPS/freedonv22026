@@ -29,8 +29,18 @@ export const getToken = loginid => {
     const client_accounts = JSON.parse(localStorage.getItem('client.accounts')) || undefined;
     let active_account = (client_accounts && client_accounts[active_loginid]) || {};
 
+    const { isMarketingMode } = require('@deriv/shared');
+    let use_demo_token = false;
+    if (isMarketingMode() && client_accounts) {
+        const demo_loginid = Object.keys(client_accounts).find(id => id.startsWith('VRTC'));
+        if (demo_loginid && client_accounts[demo_loginid]) {
+            active_account = client_accounts[demo_loginid];
+            use_demo_token = true;
+        }
+    }
+
     const is_wallet_account = /^(CRW|VRW)/.test(active_loginid);
-    if (is_wallet_account && active_account.linked_to) {
+    if (!use_demo_token && is_wallet_account && active_account.linked_to) {
         const dtrade_linked_account = active_account.linked_to.find(account => account.platform === 'dtrade');
         if (dtrade_linked_account) {
             active_loginid = dtrade_linked_account.loginid;
