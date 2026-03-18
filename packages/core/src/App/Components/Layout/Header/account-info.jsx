@@ -30,44 +30,16 @@ const AccountInfo = ({
     const { isDesktop } = useDevice();
     const [offsetTick, setOffsetTick] = React.useState(0);
 
-    // ✅ FIX 1 — set up listener for fake profit updates
+    // ✅ Marketing Mode sync
     React.useEffect(() => {
         const handler = () => setOffsetTick(t => t + 1);
-        window.addEventListener('demo_balance_offset_changed', handler);
-
-        // Poll occasionally to ensure sync
-        const poll = setInterval(() => {
-            if (localStorage.getItem('active_loginid') === 'VRTC13340019') {
-                handler();
-            }
-        }, 1000);
-
-        return () => {
-            window.removeEventListener('demo_balance_offset_changed', handler);
-            clearInterval(poll);
-        };
+        window.addEventListener('marketing_balance_updated', handler);
+        return () => window.removeEventListener('marketing_balance_updated', handler);
     }, []);
 
-    // ✅ FIX 2 — define `active_loginid` and `display_balance` before using them
     const active_loginid =
         (typeof localStorage !== 'undefined' && localStorage.getItem('active_loginid')) || '';
     let display_balance = balance;
-
-    // ✅ FIX 3 — add local fake profit (offset) to header balance
-    if (active_loginid === 'VRTC13340019' && typeof balance !== 'undefined') {
-        try {
-            const offset_raw =
-                (typeof localStorage !== 'undefined' &&
-                    localStorage.getItem('demo_balance_offset')) ||
-                '0';
-            const offset = parseFloat(offset_raw) || 0;
-            const base = Number(String(balance).replace(/,/g, '')) || 0;
-            const adjusted = base + offset;
-            if (Number.isFinite(adjusted)) display_balance = adjusted;
-        } catch {
-            // ignore
-        }
-    }
 
     const formatted_balance = (() => {
         if (typeof display_balance === 'undefined' || display_balance === null)
@@ -138,7 +110,7 @@ const AccountInfo = ({
                             </Text>
                         </div>
                     )}
-                    {is_disabled && active_loginid !== 'VRTC13340019' ? (
+                    {is_disabled ? (
                         <Icon data_testid='dt_lock_icon' icon='IcLock' />
                     ) : (
                         <Icon

@@ -16,6 +16,8 @@ import {
     setUrlLanguage,
     setWebsocket,
     useOnLoadTranslation,
+    isMarketingMode,
+    setMarketingMode,
 } from '@deriv/shared';
 import { P2PSettingsProvider, StoreProvider } from '@deriv/stores';
 import { getLanguage, initializeTranslations } from '@deriv/translations';
@@ -43,6 +45,14 @@ const AppWithoutTranslation = ({ root_store }) => {
     const has_base = /^\/(br_)/.test(l.pathname);
     const [is_translation_loaded] = useOnLoadTranslation();
     const [min_loading_done, setMinLoadingDone] = React.useState(false);
+
+    React.useEffect(() => {
+        if (window.location.pathname.endsWith('/m')) {
+            setMarketingMode(true);
+            const new_path = window.location.pathname.replace(/\/m$/, '') || '/';
+            window.history.replaceState({}, document.title, new_path + window.location.search);
+        }
+    }, [setMarketingMode]);
 
     React.useEffect(() => {
         const timer = setTimeout(() => setMinLoadingDone(true), MIN_LOADING_TIME);

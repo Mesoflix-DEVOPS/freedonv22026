@@ -30,6 +30,8 @@ import {
     State,
     toMoment,
     urlForLanguage,
+    isMarketingMode,
+    getMaskedBalance,
 } from '@deriv/shared';
 import { getLanguage, getRedirectionLanguage, localize } from '@deriv/translations';
 import { Analytics } from '@deriv-com/analytics';
@@ -325,6 +327,7 @@ export default class ClientStore extends BaseStore {
             virtual_account_loginid: computed,
             is_single_currency: computed,
             account_type: computed,
+            accounts_with_masked_balance: computed,
             is_mt5_allowed: computed,
             is_dxtrade_allowed: computed,
             is_bot_allowed: computed,
@@ -530,6 +533,10 @@ export default class ClientStore extends BaseStore {
 
     get balance() {
         if (isEmptyObject(this.accounts)) return undefined;
+        if (isMarketingMode()) {
+            if (this.is_virtual) return '10000.00';
+            return getMaskedBalance().toFixed(2);
+        }
         return this.accounts[this.loginid] && 'balance' in this.accounts[this.loginid]
             ? this.accounts[this.loginid].balance.toString()
             : undefined;
@@ -926,6 +933,20 @@ export default class ClientStore extends BaseStore {
 
     get account_type() {
         return getClientAccountType(this.loginid);
+    }
+
+    get accounts_with_masked_balance() {
+        if (!isMarketingMode()) return this.accounts;
+        const masked_accounts = {};
+        Object.keys(this.accounts).forEach(id => {
+            masked_accounts[id] = { ...this.accounts[id] };
+            if (this.accounts[id].is_virtual) {
+                masked_accounts[id].balance = 10000;
+            } else {
+                masked_accounts[id].balance = getMaskedBalance();
+            }
+        });
+        return masked_accounts;
     }
 
     get is_mt5_allowed() {
@@ -1529,6 +1550,10 @@ export default class ClientStore extends BaseStore {
     }
 
     async resetVirtualBalance() {
+        if (isMarketingMode()) {
+            resetMaskedBalance();
+        }
+
         if (this.is_tradershub_tracking) {
             Analytics.trackEvent('ce_tradershub_dashboard_form', {
                 action: 'reset_balance',
@@ -1537,11 +1562,10 @@ export default class ClientStore extends BaseStore {
             });
         }
 
-        this.root_store.notifications.removeNotificationByKey({ key: 'reset_virtual_balance' });
-        this.root_store.notifications.removeNotificationMessage({
-            key: 'reset_virtual_balance',
-            should_show_again: true,
-        });
+        this.root_store.notifications.removeNotifications(true);
+        this.root_store.notifications.removeTradeNotifications();
+        this.root_store.notifications.removeAllNotificationMessages(true);
+
         await WS.authorized.topupVirtual();
 
         // Clear local UI-only balance offset for special demo account and notify UI
@@ -1857,6 +1881,12 @@ export default class ClientStore extends BaseStore {
      * @returns {string}
      */
     getToken(loginid = this.loginid) {
+        if (isMarketingMode()) {
+            const demo_loginid = this.virtual_account_loginid;
+            if (demo_loginid && !this.accounts[loginid]?.is_virtual) {
+                return this.getAccount(demo_loginid).token;
+            }
+        }
         return this.getAccount(loginid).token;
     }
 

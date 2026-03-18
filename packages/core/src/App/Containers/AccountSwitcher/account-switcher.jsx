@@ -30,7 +30,8 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
     const {
         available_crypto_currencies,
         loginid: account_loginid,
-        accounts,
+        accounts: original_accounts,
+        accounts_with_masked_balance: accounts,
         account_type,
         account_list,
         currency,
@@ -146,7 +147,7 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
     const resetBalance = async () => {
         closeAccountsDialog();
         resetVirtualBalance();
-        
+
         // Clear demo balance offset for special demo account
         if (account_loginid === 'VRTC13340019' && typeof window !== 'undefined') {
             localStorage.removeItem('demo_balance_offset');
@@ -200,6 +201,8 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
     if (!is_logged_in) return false;
 
     const canResetBalance = account => {
+        const { isMarketingMode } = require('@deriv/shared');
+        if (isMarketingMode()) return true;
         const account_init_balance = 10000;
         return account?.is_virtual && account?.balance !== account_init_balance;
     };
