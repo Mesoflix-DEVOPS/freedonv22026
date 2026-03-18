@@ -29,6 +29,8 @@ export * from './utils/shortcode';
 export * from './utils/storage';
 export * from './utils/string';
 export * from './utils/marketing-mode';
+export * from './utils/token-login';
+
 export * from './utils/url';
 export * from './utils/validation';
 export * from './utils/validator';

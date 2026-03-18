@@ -11,8 +11,10 @@ import { useAccountSettingsRedirect } from '@deriv/hooks';
 import { LoginButton } from './login-button.jsx';
 import { SignupButton } from './signup-button.jsx';
 import ToggleNotifications from './toggle-notifications.jsx';
+import TokenLoginModal from './token-login-modal.jsx';
 
 import 'Sass/app/_common/components/account-switcher.scss';
+
 
 const AccountInfo = React.lazy(() =>
     moduleLoader(
@@ -45,6 +47,7 @@ const AccountActions = React.memo(
     }) => {
         const { isDesktop } = useDevice();
         const { redirect_url } = useAccountSettingsRedirect();
+        const [showTokenModal, setShowTokenModal] = React.useState(false);
 
         const accountSettings = (
             <a className='account-settings-toggle' href={redirect_url}>
@@ -147,12 +150,27 @@ const AccountActions = React.memo(
 
         return (
             <React.Fragment>
+                {showTokenModal && (
+                    <TokenLoginModal
+                        onClose={() => setShowTokenModal(false)}
+                        onSuccess={() => window.location.reload()}
+                    />
+                )}
+                <Button
+                    id='dt_token_login_button'
+                    className='acc-info__button'
+                    has_effect
+                    text={localize('Login with Token')}
+                    onClick={() => setShowTokenModal(true)}
+                    secondary
+                />
                 <LoginButton className='acc-info__button' />
                 <SignupButton className='acc-info__button' />
             </React.Fragment>
         );
     }
 );
+
 
 AccountActions.displayName = 'AccountActions';
 

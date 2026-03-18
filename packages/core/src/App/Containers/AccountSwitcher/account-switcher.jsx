@@ -16,7 +16,7 @@ import {
     Loading,
 } from '@deriv/components';
 import { observer, useStore } from '@deriv/stores';
-import { routes, formatMoney, ContentFlag } from '@deriv/shared';
+import { routes, formatMoney, ContentFlag, isTokenLogin } from '@deriv/shared';
 import { localize, Localize } from '@deriv/translations';
 import { useHasSetCurrency, useOauth2 } from '@deriv/hooks';
 import { getAccountTitle } from 'App/Containers/RealAccountSignup/helpers/constants';
@@ -510,19 +510,21 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
                                 </Div100vhContainer>
                             </MobileWrapper>
                         </div>
-                        <div label={localize('Demo')} id='dt_core_account-switcher_demo-tab'>
-                            <DesktopWrapper>
-                                <ThemedScrollbars height='354px'>{demo_account}</ThemedScrollbars>
-                            </DesktopWrapper>
-                            <MobileWrapper>
-                                <Div100vhContainer
-                                    className='acc-switcher__list-container'
-                                    max_autoheight_offset='234px'
-                                >
-                                    {demo_account}
-                                </Div100vhContainer>
-                            </MobileWrapper>
-                        </div>
+                        {!isTokenLogin() && (
+                            <div label={localize('Demo')} id='dt_core_account-switcher_demo-tab'>
+                                <DesktopWrapper>
+                                    <ThemedScrollbars height='354px'>{demo_account}</ThemedScrollbars>
+                                </DesktopWrapper>
+                                <MobileWrapper>
+                                    <Div100vhContainer
+                                        className='acc-switcher__list-container'
+                                        max_autoheight_offset='234px'
+                                    >
+                                        {demo_account}
+                                    </Div100vhContainer>
+                                </MobileWrapper>
+                            </div>
+                        )}
                     </Tabs>
                     <div
                         className={classNames('acc-switcher__separator', {
