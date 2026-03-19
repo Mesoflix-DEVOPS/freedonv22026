@@ -233,11 +233,15 @@ const QuickStrategy = observer(() => {
         };
 
         console.log('[QS] Subscribing to live ticks for', selectedMarket);
-        const unsubscribe = api_base.api.onMessage(handleMessage);
+        const subscription = api_base.api.onMessage().subscribe(({ data }: { data: any }) => {
+            handleMessage(data);
+        });
 
         return () => {
             console.log('[QS] Cleaning up tick listener for', selectedMarket);
-            unsubscribe();
+            if (subscription && typeof subscription.unsubscribe === 'function') {
+                subscription.unsubscribe();
+            }
         };
     }, [selectedMarket]); // only re-run when market changes — pipSize via ref
 
