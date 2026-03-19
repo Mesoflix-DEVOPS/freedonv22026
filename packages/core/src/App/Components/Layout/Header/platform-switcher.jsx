@@ -13,6 +13,7 @@ import derivBotImg from '../../../../public/images/icons/deriv_bot.png';
 import derivTraderImg from '../../../../public/images/icons/deriv_trader.png';
 
 const PlatformSwitcher = () => {
+    const { isMobile } = useDevice();
     return (
         <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '16px' }}>
             <span style={{
@@ -23,7 +24,7 @@ const PlatformSwitcher = () => {
                 WebkitTextFillColor: 'transparent',
                 letterSpacing: '0.5px'
             }}>
-                Mesoflix
+                {isMobile ? 'BB' : 'Brian Binary'}
             </span>
         </div>
     );

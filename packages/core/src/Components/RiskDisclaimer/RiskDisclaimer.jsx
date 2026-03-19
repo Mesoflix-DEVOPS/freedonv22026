@@ -90,7 +90,7 @@ const RiskDisclaimer = () => {
         >
             <div className="risk-disclaimer__header">
                 <Text size="xxs" weight="bold">
-                    <Localize i18n_default_text="Mesoflix Advisor" />
+                    <Localize i18n_default_text="Brian Binary Advisor" />
                 </Text>
                 <div className="risk-disclaimer__drag-handle">
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -108,7 +108,7 @@ const RiskDisclaimer = () => {
                 <div className="risk-disclaimer__content">
                     <div className="risk-disclaimer__content-inner">
                         <Text align='left' className='risk-disclaimer__text' size={isMobile ? 'xxs' : 'xs'}>
-                            <Localize i18n_default_text='Mesoflix provides advanced automation tools. Ensure you understand the strategies you are deploying before activating them.' />
+                            <Localize i18n_default_text='Brian Binary provides advanced automation tools. Ensure you understand the strategies you are deploying before activating them.' />
                         </Text>
                         <ul className="risk-disclaimer__list">
                             <li className="risk-disclaimer__list-item">

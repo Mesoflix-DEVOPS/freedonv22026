@@ -26,7 +26,7 @@ export const GlobalLoading = () => {
 
     // Professional loading content
     const loadingContent = {
-        partnership: { text: "Welcome to", company: "Mesoflix", type: "partnership" },
+        partnership: { text: "Welcome to", company: "Brian Binary", type: "partnership" },
         powered: { text: "Powered by", company: "Advanced Tech", type: "powered" },
         journey: { text: "Simplifying your", highlight: "trading journey", type: "journey" }
     };
@@ -166,7 +166,7 @@ export const GlobalLoading = () => {
                                 zIndex: 10
                             }}
                         >
-                            Mesoflix
+                            Brian Binary
                             <div className={styles.logoGlow} />
                         </motion.div>
 

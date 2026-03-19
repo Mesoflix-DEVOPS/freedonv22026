@@ -1,6 +1,8 @@
 import React from 'react';
+import { useDevice } from '@deriv-com/ui';
 
 const DerivShortLogo = () => {
+    const { isMobile } = useDevice();
     return (
         <div className='header__menu-left-logo' style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{
@@ -11,7 +13,7 @@ const DerivShortLogo = () => {
                 WebkitTextFillColor: 'transparent',
                 letterSpacing: '0.5px'
             }}>
-                Mesoflix
+                {isMobile ? 'BB' : 'Brian Binary'}
             </span>
         </div>
     );

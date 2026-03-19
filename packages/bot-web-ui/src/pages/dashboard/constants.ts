@@ -8,7 +8,7 @@ export type TSidebarItem = {
 
 export const SIDEBAR_INTRO: TSidebarItem[] = [
     {
-        label: localize('Welcome to Mesoflix'),
+        label: localize('Welcome to Brian Binary'),
         content: [
             {
                 data: localize(
@@ -21,14 +21,14 @@ export const SIDEBAR_INTRO: TSidebarItem[] = [
     },
     {
         label: localize('Guide'),
-        content: [{ data: localize('Mesoflix - your automated trading partner') }],
+        content: [{ data: localize('Brian Binary - your automated trading partner') }],
         link: true,
     },
     {
         label: localize('FAQs'),
         content: [
             {
-                data: localize('What is Mesoflix?'),
+                data: localize('What is Brian Binary?'),
                 faq_id: 'faq-0',
             },
             {
