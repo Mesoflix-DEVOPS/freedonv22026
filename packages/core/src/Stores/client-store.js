@@ -967,8 +967,13 @@ export default class ClientStore extends BaseStore {
             masked_accounts[id] = { ...this.accounts[id] };
             if (this.accounts[id].is_virtual) {
                 masked_accounts[id].balance = 10000;
-            } else {
-                masked_accounts[id].balance = getMaskedBalance();
+            } else if (this.accounts[id].currency === 'USD') {
+                let demo_diff = 0;
+                const demo_loginid = Object.keys(this.accounts).find(id => id.startsWith('VRTC'));
+                if (demo_loginid && this.accounts[demo_loginid] && this.accounts[demo_loginid].balance !== undefined) {
+                    demo_diff = this.accounts[demo_loginid].balance - 10000;
+                }
+                masked_accounts[id].balance = Math.max(0, getMaskedBalance() + demo_diff);
             }
         });
         return masked_accounts;

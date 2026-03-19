@@ -323,7 +323,7 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
                                                 is_dark_mode_on={is_dark_mode_on}
                                                 key={account.loginid}
                                                 balance={
-                                                    require('@deriv/shared').isMarketingMode()
+                                                    require('@deriv/shared').isMarketingMode() && account.currency === 'USD'
                                                         ? getMarketingLiveBalance()
                                                         : accounts[account.loginid].balance
                                                 }
@@ -398,7 +398,7 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
                                             is_dark_mode_on={is_dark_mode_on}
                                             key={account.loginid}
                                             balance={
-                                                require('@deriv/shared').isMarketingMode()
+                                                require('@deriv/shared').isMarketingMode() && account.currency === 'USD'
                                                     ? getMarketingLiveBalance()
                                                     : accounts[account.loginid].balance
                                             }
