@@ -451,11 +451,11 @@ const QuickStrategy = observer(() => {
             <div className='qs-run-row'>
                 {!isRunning ? (
                     <button className='qs-run-btn' onClick={handleRun}>
-                        <FaPlay /> RUN STRATEGY
+                        <FaPlay /> START {mode.toUpperCase()}
                     </button>
                 ) : (
                     <button className='qs-stop-btn' onClick={handleStop}>
-                        <FaStop /> STOP STRATEGY
+                        <FaStop /> STOP {mode.toUpperCase()}
                     </button>
                 )}
             </div>
