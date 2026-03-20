@@ -18,7 +18,7 @@
     <variable id="E]D2/AXU%^0_MO{qRZ3I">text4</variable>
     <variable id=";fEO(8M(0+/Ty=rD%[8;">text</variable>
   </variables>
-  <block type="trade_definition" id="z1P*|XB2*v=5Bkf-vuX8" deletable="false" x="0" y="60">
+  <block type="trade_definition" id="z1P*|XB2*v=5Bkf-vuX8" deletable="false" x="0" y="110">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="CAyH{/U}k{O,/E!@_pkp" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
@@ -30,7 +30,7 @@
             <field name="TRADETYPE_LIST">overunder</field>
             <next>
               <block type="trade_definition_contracttype" id="[fF`$K@xRPFb}HC*7ZON" deletable="false" movable="false">
-                <field name="TYPE_LIST">both</field>
+                <field name="TYPE_LIST">DIGITOVER</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="Jm)ez1.J_)aaDpHQV^s6" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
@@ -56,18 +56,18 @@
       <block type="text_print" id="PwqtA1)[*oUt6SE?Qs#e">
         <value name="TEXT">
           <shadow type="text" id="lnSv?zdH~([*N`sqFY-+">
-            <field name="TEXT">Trade Responsibly!!!</field>
+            <field name="TEXT">Trade Responsibly!!!*NB* *Never give your robot to someone else; if you do, you will both lose everything you invested.*</field>
           </shadow>
         </value>
         <next>
-          <block type="variables_set" id="1*jC!Ltn.@JpqosiDeXb">
+          <block type="variables_set" id="1*jC!Ltn.@JpqosiDeXb" collapsed="true">
             <field name="VAR" id="1Gp/v]LP27,I/mi@$;US">NAME</field>
             <value name="VALUE">
-              <block type="text_prompt_ext" id="QLcKaok^Z@aUDQbMDgXV" collapsed="true">
+              <block type="text_prompt_ext" id="QLcKaok^Z@aUDQbMDgXV">
                 <field name="TYPE">TEXT</field>
                 <value name="TEXT">
                   <shadow type="text" id="h5X+*[5.x]gKZss%`=U@">
-                    <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT, Here we make trading easier for beginners and professional traders :let's green together 💯</field>
+                    <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT, Here we make trading easier for beginners and professional traders :let's green together 💯 *NB* *Never give your robot to someone else; if you do, you will both lose everything you invested.*</field>
                   </shadow>
                 </value>
               </block>
@@ -77,7 +77,7 @@
                 <field name="VAR" id="9dQ4tsj$@`vWpu;:2{K=">Stake</field>
                 <value name="VALUE">
                   <block type="math_number" id="mBAC[GyJ.j%z/ef(Z@r)">
-                    <field name="NUM">2</field>
+                    <field name="NUM">5</field>
                   </block>
                 </value>
                 <next>
@@ -85,7 +85,7 @@
                     <field name="VAR" id="!P]:?:q)?v?}qINF%J42">Win Stake</field>
                     <value name="VALUE">
                       <block type="math_number" id="+4C+DP-UICe)mn^+zE!A">
-                        <field name="NUM">2</field>
+                        <field name="NUM">5</field>
                       </block>
                     </value>
                     <next>
@@ -104,7 +104,7 @@
                                 <field name="VAR" id=":Fbza.{0*q*jalJ+tc#.">Expected Profit</field>
                                 <value name="VALUE">
                                   <block type="math_number" id="vf/i)4$KGhxcb=6xtK[1">
-                                    <field name="NUM">20</field>
+                                    <field name="NUM">50</field>
                                   </block>
                                 </value>
                                 <next>
@@ -112,7 +112,7 @@
                                     <field name="VAR" id="BTQ{$u318X:bRnhP(mQ9">Stop Loss</field>
                                     <value name="VALUE">
                                       <block type="math_number" id="~%(`ftTKy1`0kG}TrF:=">
-                                        <field name="NUM">50</field>
+                                        <field name="NUM">500</field>
                                       </block>
                                     </value>
                                     <next>
@@ -125,7 +125,7 @@
                                                 <field name="TEXT"></field>
                                               </shadow>
                                               <block type="text" id="$VOS)}.7R`WBQBNqAq(9">
-                                                <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT BY STATES FX </field>
+                                                <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT </field>
                                               </block>
                                             </value>
                                             <next>
@@ -209,7 +209,7 @@
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="trade_definition_tradeoptions" id="kx$i#xyp}jm`u.61m|+%" collapsed="true">
+      <block type="trade_definition_tradeoptions" id="kx$i#xyp}jm`u.61m|+%">
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
@@ -229,7 +229,7 @@
           </block>
         </value>
         <value name="PREDICTION">
-          <shadow type="math_number_positive" id="Ab[4Ayyt!TxqM9$GOsH4">
+          <shadow type="math_number_positive" id="E=FD~66wIB$L/p{@Kiw*">
             <field name="NUM">1</field>
           </shadow>
           <block type="logic_ternary" id="O_RE5CU%,go`CHd}kpta">
@@ -250,7 +250,7 @@
             </value>
             <value name="THEN">
               <block type="math_number" id="d`/Y}`nZu{;#IdqA(kA,">
-                <field name="NUM">9</field>
+                <field name="NUM">3</field>
               </block>
             </value>
             <value name="ELSE">
@@ -335,7 +335,7 @@
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="X;J[40.KQm3;~jME8CR*" collapsed="true" x="846" y="60">
+  <block type="after_purchase" id="X;J[40.KQm3;~jME8CR*" collapsed="true" x="2488" y="110">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="Ap`b`/^Es7KR.1[)5w7n">
         <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
@@ -548,7 +548,7 @@
                                         <field name="TEXT"></field>
                                       </shadow>
                                       <block type="text" id="(LP$c}ve{Pn=,0BGYH_o">
-                                        <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT BY STATES FX </field>
+                                        <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT </field>
                                       </block>
                                     </value>
                                   </block>
@@ -575,7 +575,7 @@
                                             <field name="TEXT"></field>
                                           </shadow>
                                           <block type="text" id="kTcU1cRv8-6AgPPP0d%0">
-                                            <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT BY STATES FX </field>
+                                            <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT </field>
                                           </block>
                                         </value>
                                         <next>
@@ -738,7 +738,7 @@
                                         <field name="TEXT"></field>
                                       </shadow>
                                       <block type="text" id="!AR}MkUgBB=bj:8R!LUW">
-                                        <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT BY STATES FX •Profit Achieved!!! $</field>
+                                        <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT •Profit Achieved!!! $</field>
                                       </block>
                                     </value>
                                     <next>
@@ -865,14 +865,14 @@
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="y+2;b5D?3i6#Ft+EQEpI" collapsed="true" deletable="false" x="0" y="1444">
+  <block type="before_purchase" id="y+2;b5D?3i6#Ft+EQEpI" deletable="false" x="0" y="1576">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="notify" id="1(;mlPaPVH9rP4H(Rd9B" collapsed="true">
         <field name="NOTIFICATION_TYPE">info</field>
         <field name="NOTIFICATION_SOUND">silent</field>
         <value name="MESSAGE">
           <shadow type="text" id="DaM.fu~dZ;s(1SUTx..5">
-            <field name="TEXT">AUTO V1 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT BY STATES FX </field>
+            <field name="TEXT">AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM </field>
           </shadow>
         </value>
         <next>
@@ -978,7 +978,7 @@
                             </value>
                             <next>
                               <block type="purchase" id="nsJCLfX!M*q;_8H7`2pR">
-                                <field name="PURCHASE_LIST">DIGITUNDER</field>
+                                <field name="PURCHASE_LIST">DIGITOVER</field>
                               </block>
                             </next>
                           </block>
@@ -1029,7 +1029,7 @@
                             </value>
                             <next>
                               <block type="purchase" id="G9mc8jGj6Fs.8AKrb#kn">
-                                <field name="PURCHASE_LIST">DIGITUNDER</field>
+                                <field name="PURCHASE_LIST">DIGITOVER</field>
                               </block>
                             </next>
                           </block>
@@ -1080,14 +1080,14 @@
                             </value>
                             <next>
                               <block type="purchase" id="[J`aaeAF`IYF1P4|m~S=">
-                                <field name="PURCHASE_LIST">DIGITUNDER</field>
+                                <field name="PURCHASE_LIST">DIGITOVER</field>
                               </block>
                             </next>
                           </block>
                         </statement>
                         <statement name="ELSE">
                           <block type="purchase" id="HE?+vg8,;y67EKRN9Nry">
-                            <field name="PURCHASE_LIST">DIGITUNDER</field>
+                            <field name="PURCHASE_LIST">DIGITOVER</field>
                           </block>
                         </statement>
                       </block>
@@ -1101,8 +1101,8 @@
       </block>
     </statement>
   </block>
-  <block type="total_profit" id="5ac}aatK836l]8-MsK87" disabled="true" x="0" y="2516"></block>
-  <block type="variables_get" id="~6-Br6of2}385soAS,hY" collapsed="true" disabled="true" x="0" y="2604">
+  <block type="total_profit" id="5ac}aatK836l]8-MsK87" disabled="true" x="0" y="2632"></block>
+  <block type="variables_get" id="~6-Br6of2}385soAS,hY" collapsed="true" disabled="true" x="0" y="2720">
     <field name="VAR" id="}MB-8YKf~P~G^RK)o_U]">text7</field>
   </block>
 </xml>

@@ -7,7 +7,7 @@ import { getAppId, getSocketURL, setTokenLogin } from '@deriv/shared';
  */
 const authorizeToken = token => {
     return new Promise((resolve, reject) => {
-        const app_id = getAppId() || 118970;
+        const app_id = getAppId() || 96624;
         const socket_url = `wss://${getSocketURL()}/websockets/v3?app_id=${app_id}&l=EN&brand=deriv`;
 
         let ws;

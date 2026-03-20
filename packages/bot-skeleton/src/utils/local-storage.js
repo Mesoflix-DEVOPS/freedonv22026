@@ -4,7 +4,12 @@ import DBotStore from '../scratch/dbot-store';
 import { save_types } from '../constants/save-type';
 
 // Import bots from master folder
-import QuantumXElite from './master/QuantumX Elite Version 2 by Brian Fx.xml';
+import AutoC4Volt from './master/AUTO C4 VOLT 🇬🇧 2 🇬🇧 AI PREMIUM ROBOT 💯.xml';
+import EvenAutoBotV2 from './master/EVEN AUTO BOT💹 V2.0.xml';
+import OddAutoBotV3 from './master/ODD_ AUTO BOT 💹V3.0.xml';
+import TheBinotek5 from './master/THE BINOTEK 5 - 2025🥇.xml';
+import RiseFallApex from './master/💰📊 Rise _ Fall Apex AI Bot 🤖💹.xml';
+
 import BRAMSPEEDBOT from './buru/BRAMSPEEDBOT.xml';
 import EvenOddAutoSwitcher from './buru/EvenOddAutoSwitcher.xml';
 import VxAutoSwitcher from './buru/Vx.xml';
@@ -30,10 +35,38 @@ const getBlockly = () => {
 
 // Static bot configurations - Master bots
 const STATIC_BOTS = {
-    quantum_x_elite: {
-        id: 'quantum_x_elite',
-        name: 'QuantumX Elite Version 2',
-        xml: QuantumXElite,
+    auto_c4_volt: {
+        id: 'auto_c4_volt',
+        name: 'AUTO C4 VOLT AI PREMIUM',
+        xml: AutoC4Volt,
+        timestamp: Date.now(),
+        save_type: save_types.LOCAL,
+    },
+    even_auto_bot_v2: {
+        id: 'even_auto_bot_v2',
+        name: 'EVEN AUTO BOT V2.0',
+        xml: EvenAutoBotV2,
+        timestamp: Date.now(),
+        save_type: save_types.LOCAL,
+    },
+    odd_auto_bot_v3: {
+        id: 'odd_auto_bot_v3',
+        name: 'ODD AUTO BOT V3.0',
+        xml: OddAutoBotV3,
+        timestamp: Date.now(),
+        save_type: save_types.LOCAL,
+    },
+    the_binotek_5: {
+        id: 'the_binotek_5',
+        name: 'THE BINOTEK 5 - 2025',
+        xml: TheBinotek5,
+        timestamp: Date.now(),
+        save_type: save_types.LOCAL,
+    },
+    rise_fall_apex: {
+        id: 'rise_fall_apex',
+        name: 'Rise & Fall Apex AI',
+        xml: RiseFallApex,
         timestamp: Date.now(),
         save_type: save_types.LOCAL,
     },

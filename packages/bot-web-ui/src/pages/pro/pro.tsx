@@ -6,7 +6,7 @@ const Finesttool = () => {
         <div className={styles.container}>
             <iframe
                 src="https://new-tool-delta.vercel.app/"
-                title="Brian Binary Analysis"
+                title="Freedon Analysis"
                 className={styles.iframe}
                 allowFullScreen
             />

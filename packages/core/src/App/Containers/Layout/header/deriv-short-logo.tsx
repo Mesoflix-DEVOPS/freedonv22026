@@ -13,7 +13,7 @@ const DerivShortLogo = () => {
                 WebkitTextFillColor: 'transparent',
                 letterSpacing: '0.5px'
             }}>
-                {isMobile ? 'BB' : 'Brian Binary'}
+                {isMobile ? 'F' : 'Freedon'}
             </span>
         </div>
     );

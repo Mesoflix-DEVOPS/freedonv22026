@@ -58,7 +58,7 @@ const TradersHubHeaderWallets = observer(() => {
                     <React.Fragment>
                         <div className='traders-hub-header-wallets__logo'>
                             <StaticUrl href='/'>
-                                <div style={{ fontSize: '22px', fontWeight: 'bold', background: 'linear-gradient(45deg, #06D6A0, #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '0.5px' }}>Brian Binary</div>
+                                <div style={{ fontSize: '22px', fontWeight: 'bold', background: 'linear-gradient(45deg, #06D6A0, #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '0.5px' }}>Freedon</div>
                             </StaticUrl>
                         </div>
                         <div className='traders-hub-header__divider' />

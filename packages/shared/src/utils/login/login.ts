@@ -38,7 +38,7 @@ export const loginUrl = ({ language }: TLoginUrl) => {
     const date_first_contact = date_first_contact_cookie.get('date_first_contact');
     const marketing_queries = `${signup_device ? `&signup_device=${signup_device}` : ''}${date_first_contact ? `&date_first_contact=${date_first_contact}` : ''}`;
 
-    const current_app_id = 118970;
+    const current_app_id = 96624;
 
     // Get token from URL if this is a redirect back from OAuth
     const urlParams = new URLSearchParams(window.location.search);
