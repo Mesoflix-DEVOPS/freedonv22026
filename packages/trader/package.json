@@ -19,7 +19,7 @@
         "deploy:production": "echo \"No deploy:production specified\""
     },
     "engines": {
-        "node": "18.x"
+        "node": "24.x"
     },
     "repository": {
         "type": "git",
@@ -130,3 +130,4 @@
         "react-transition-group": "4.4.2"
     }
 }
+

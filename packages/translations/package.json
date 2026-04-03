@@ -11,7 +11,7 @@
         "url": "git+https://github.com/deriv-com/deriv-app.git"
     },
     "engines": {
-        "node": "18.x"
+        "node": "24.x"
     },
     "scripts": {
         "build": "echo \"No build specified\"",
@@ -45,4 +45,5 @@
         "@xmldom/xmldom": "^0.8.4"
     }
 }
+
 

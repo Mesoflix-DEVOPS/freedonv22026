@@ -12,7 +12,7 @@
         "url": "git+https://github.com/deriv-com/deriv-app.git"
     },
     "engines": {
-        "node": "18.x"
+        "node": "24.x"
     },
     "scripts": {
         "start": "echo \"No start specified\"",
@@ -66,3 +66,4 @@
         "ua-parser-js": "^1.0.37"
     }
 }
+
