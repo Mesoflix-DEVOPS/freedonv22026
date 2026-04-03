@@ -195,8 +195,8 @@ const TokenManager: React.FC = observer(() => {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '28px', color: '#1a237e', fontWeight: 800 }}>Lite CopyTrader</h1>
-                    <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>Client-Side Sync Engine</p>
+                    <h1 style={{ margin: 0, fontSize: '28px', color: '#1a237e', fontWeight: 800 }}>Pro CopyTrader</h1>
+                    <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>Cloud-Powered Real-Time Sync</p>
                 </div>
                 {(savedCopierToken || savedTraderToken) && (
                     <button onClick={clearTokens} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ff5252', color: '#ff5252', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}>
@@ -305,8 +305,8 @@ const TokenManager: React.FC = observer(() => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', justifyContent: 'center' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: '#f1f8ff', borderRadius: '12px' }}>
                                             <div>
-                                                <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Manual Mirror (Fallback)</p>
-                                                <p style={{ margin: 0, fontSize: '11px', color: '#666' }}>Local BroadcastChannel sync</p>
+                                                <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Real-Time Cloud Mirror</p>
+                                                <p style={{ margin: 0, fontSize: '11px', color: '#666' }}>Platform-wide signal synchronization</p>
                                             </div>
                                             <input type="checkbox" checked={isManualMirror} onChange={(e) => {
                                                 setIsManualMirror(e.target.checked);
@@ -336,8 +336,8 @@ const TokenManager: React.FC = observer(() => {
                     <div style={{ background: '#fff', borderRadius: '20px', padding: '40px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', textAlign: 'center' }}>
                         <div style={{ maxWidth: '500px', margin: '0 auto' }}>
                             <FaChartLine size={50} color="#1a237e" style={{ marginBottom: '20px' }} />
-                            <h2 style={{ margin: '0 0 10px 0' }}>Share Your Trades</h2>
-                            <p style={{ color: '#666', marginBottom: '30px' }}>Allow others to copy your success. Requires an API token with Admin scope.</p>
+                            <h2 style={{ margin: '0 0 10px 0' }}>Broadcast Your Signals</h2>
+                            <p style={{ color: '#666', marginBottom: '30px' }}>Allow the entire platform to copy your success. Requires an API token with Admin scope to enable cloud listening.</p>
                             
                             <div style={{ textAlign: 'left', marginBottom: '25px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 600, color: '#666', display: 'block', marginBottom: '8px' }}>Trader Admin Token</label>
@@ -391,7 +391,7 @@ const TokenManager: React.FC = observer(() => {
             )}
             
             <div style={{ padding: '40px 0', opacity: 0.5, fontSize: '12px', textAlign: 'center' }}>
-                Lite CopyTrader v1.0 • Built on Deriv API • No Server Dependency
+                Pro CopyTrader v2.0 • Built on Deriv API • Real-Time Cloud Infrastructure
             </div>
         </div>
     );

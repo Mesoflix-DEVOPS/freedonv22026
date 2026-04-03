@@ -1,4 +1,19 @@
 import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
+import { db } from './FirebaseConfig';
+import { 
+    collection, 
+    addDoc, 
+    onSnapshot, 
+    query, 
+    orderBy, 
+    limit, 
+    serverTimestamp,
+    where,
+    Timestamp,
+    QuerySnapshot,
+    DocumentChange,
+    FirestoreError
+} from 'firebase/firestore';
 
 class CopyTradingLogic {
     private copier_token: string = '';
@@ -8,6 +23,7 @@ class CopyTradingLogic {
     private is_manual_mirror: boolean = false;
     private is_master: boolean = false;
     private broadcast_channel: BroadcastChannel | null = null;
+    private unsubscribe_firestore: (() => void) | null = null;
     
     // API Instances
     private copier_api: any = null;
@@ -15,6 +31,7 @@ class CopyTradingLogic {
 
     // Track last copied contract to avoid duplicate buys from subscription updates
     private last_mirrored_contract_id: number | null = null;
+    private processed_signal_ids: Set<string> = new Set();
 
     // Risk targets
     private max_stake: number = 100;
@@ -23,25 +40,58 @@ class CopyTradingLogic {
     constructor() {
         if (typeof window !== 'undefined') {
             this.broadcast_channel = new BroadcastChannel('deriv_manual_mirror');
-            this.initBroadcastListener();
+            this.initSignalListeners();
         }
     }
 
-    private initBroadcastListener() {
-        if (!this.broadcast_channel) return;
-        this.broadcast_channel.onmessage = (event) => {
-            // Only perform manual mirror if copier mode is active and we are not the master
-            if (this.is_manual_mirror && !this.is_master && this.is_copying && !this.is_paused) {
-                const tradeData = event.data;
-                
-                // Avoid duplicating the same contract multiple times
-                if (tradeData.contract_id !== this.last_mirrored_contract_id) {
-                    console.log('[CopyTrading] NEW Manual Mirror signal:', tradeData);
-                    this.executeMirroredTrade(tradeData);
-                    this.last_mirrored_contract_id = tradeData.contract_id;
+    private initSignalListeners() {
+        // 1. Local BroadcastChannel Listener (For same-browser tabs)
+        if (this.broadcast_channel) {
+            this.broadcast_channel.onmessage = (event) => {
+                if (this.is_manual_mirror && !this.is_master && this.is_copying && !this.is_paused) {
+                    this.handleSignal(event.data, 'Local-Mirror');
                 }
-            }
-        };
+            };
+        }
+
+        // 2. Global Firestore Listener (For platform-wide real-time sync)
+        const signalsRef = collection(db, 'realtime_copy_signals');
+        // Only listen for signals created in the last 1 minute to avoid catching old trades on start
+        const oneMinuteAgo = new Date(Date.now() - 60000);
+        const q = query(
+            signalsRef, 
+            where('timestamp', '>', Timestamp.fromDate(oneMinuteAgo)),
+            orderBy('timestamp', 'desc'), 
+            limit(5)
+        );
+
+        this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot) => {
+            if (!this.is_manual_mirror || this.is_master || !this.is_copying || this.is_paused) return;
+
+            snapshot.docChanges().forEach((change: DocumentChange) => {
+                if (change.type === 'added') {
+                    const signal = change.doc.data();
+                    const signalId = change.doc.id;
+
+                    if (!this.processed_signal_ids.has(signalId)) {
+                        console.log('[CopyTrading] NEW Global Signal received:', signal);
+                        this.handleSignal(signal, 'Global-Sync');
+                        this.processed_signal_ids.add(signalId);
+                    }
+                }
+            });
+        }, (error: FirestoreError) => {
+            console.error('[CopyTrading] Firestore sync error:', error);
+        });
+    }
+
+    private handleSignal(tradeData: any, source: string) {
+        // Avoid duplicating the same contract multiple times from different sources
+        if (tradeData.contract_id !== this.last_mirrored_contract_id) {
+            console.log(`[CopyTrading] Processing trade from ${source}:`, tradeData.contract_id);
+            this.executeMirroredTrade(tradeData);
+            this.last_mirrored_contract_id = tradeData.contract_id;
+        }
     }
 
     setManualMirror(enabled: boolean) {
@@ -88,7 +138,7 @@ class CopyTradingLogic {
                     amount: adjusted_amount,
                     basis: basis || 'stake',
                     contract_type: contract_type,
-                    currency: this.copier_api.account_info?.currency || 'USD',
+                    currency: (this.copier_api.account_info?.currency || 'USD'),
                     duration: duration,
                     duration_unit: duration_unit,
                     symbol: symbol,
@@ -109,9 +159,25 @@ class CopyTradingLogic {
         }
     }
 
-    broadcastTrade(tradeData: any) {
-        if (this.is_manual_mirror && this.is_master && this.broadcast_channel) {
+    async broadcastTrade(tradeData: any) {
+        if (!this.is_manual_mirror || !this.is_master) return;
+
+        // 1. Broadcast locally via BroadcastChannel
+        if (this.broadcast_channel) {
             this.broadcast_channel.postMessage(tradeData);
+        }
+
+        // 2. Broadcast globally via Firestore
+        try {
+            const signalsRef = collection(db, 'realtime_copy_signals');
+            await addDoc(signalsRef, {
+                ...tradeData,
+                timestamp: serverTimestamp(),
+                master_account: (this.trader_api?.account_info?.loginid || 'unknown')
+            });
+            console.log('[CopyTrading] Global signal broadcasted to cloud');
+        } catch (e) {
+            console.error('[CopyTrading] Failed to broadcast to cloud:', e);
         }
     }
 
