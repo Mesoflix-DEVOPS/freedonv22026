@@ -41,10 +41,10 @@ interface DerivApi {
 }
 
 class CopyTradingLogic {
-    private target_token: string = '';
+    private follower_tokens: string[] = [];
+    private follower_apis: Map<string, any> = new Map();
     private is_mirroring: boolean = false;
-    private target_api: DerivApi | null = null;
-    private active_api: DerivApi | null = null;
+    private active_api: any = null;
     private unsubscribe_active: { unsubscribe: () => void } | null = null;
     private unsubscribe_firestore: (() => void) | null = null;
     
@@ -52,18 +52,48 @@ class CopyTradingLogic {
     private last_mirrored_contract_id: number | null = null;
     private processed_signal_ids: Set<string> = new Set();
 
-    // Risk targets
+    // Risk targets (Global)
     private max_stake: number = 100;
     private min_stake: number = 0.35;
 
     constructor() {
         if (typeof window !== 'undefined') {
+            this.loadFromStorage();
             this.initGlobalListener();
         }
     }
 
+    private loadFromStorage() {
+        try {
+            const saved = localStorage.getItem('deriv_follower_tokens');
+            if (saved) {
+                this.follower_tokens = JSON.parse(saved);
+            } else {
+                // Compatibility with old single-token key
+                const oldToken = localStorage.getItem('deriv_target_token');
+                if (oldToken) {
+                    this.follower_tokens = [oldToken];
+                    this.saveToStorage();
+                    localStorage.removeItem('deriv_target_token'); // Migration
+                }
+            }
+            
+            const savedMax = localStorage.getItem('deriv_mirror_max_stake');
+            const savedMin = localStorage.getItem('deriv_mirror_min_stake');
+            if (savedMax) this.max_stake = Number(savedMax);
+            if (savedMin) this.min_stake = Number(savedMin);
+        } catch (e) {
+            console.error('[CopyTrading] Storage load failed:', e);
+        }
+    }
+
+    private saveToStorage() {
+        localStorage.setItem('deriv_follower_tokens', JSON.stringify(this.follower_tokens));
+        localStorage.setItem('deriv_mirror_max_stake', this.max_stake.toString());
+        localStorage.setItem('deriv_mirror_min_stake', this.min_stake.toString());
+    }
+
     private initGlobalListener() {
-        // Global Firestore Listener (For platform-wide real-time sync)
         const signalsRef = collection(db, 'realtime_copy_signals');
         const oneMinuteAgo = new Date(Date.now() - 60000);
         const q = query(
@@ -74,13 +104,13 @@ class CopyTradingLogic {
         );
 
         this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-            if (!this.is_mirroring || !this.target_token) return;
+            // Mirror from Firestore even if the active_ui isn't placing the trade
+            if (!this.is_mirroring || this.follower_tokens.length === 0) return;
 
             snapshot.docChanges().forEach((change: DocumentChange<DocumentData>) => {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
-                        console.log('[CopyTrading] NEW Universal Signal:', signal);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
                     }
@@ -93,51 +123,81 @@ class CopyTradingLogic {
 
     private handleSignal(tradeData: TradeSignal) {
         if (tradeData.contract_id !== this.last_mirrored_contract_id) {
-            this.executeTargetTrade(tradeData);
+            this.executeTargetTrades(tradeData);
             this.last_mirrored_contract_id = tradeData.contract_id;
         }
     }
 
-    setTargetToken(token: string) {
-        this.target_token = token;
-        if (this.target_api) {
-            this.target_api.disconnect();
-            this.target_api = null;
+    // --- Follower Management ---
+
+    async addFollower(token: string) {
+        const t = token.trim();
+        if (!t || t.length < 10) return { error: 'Invalid Token' };
+        if (this.follower_tokens.includes(t)) return { error: 'Token already linked' };
+        
+        try {
+            // Test authorization
+            const testApi = generateDerivApiInstance() as any;
+            await testApi.authorize(t);
+            
+            this.follower_tokens.push(t);
+            this.follower_apis.set(t, testApi);
+            this.saveToStorage();
+            
+            return { success: true };
+        } catch (err: any) {
+            return { error: err?.error?.message || 'Authorization failed' };
         }
+    }
+
+    removeFollower(token: string) {
+        this.follower_tokens = this.follower_tokens.filter(t => t !== token);
+        const api = this.follower_apis.get(token);
+        if (api) {
+            api.disconnect();
+            this.follower_apis.delete(token);
+        }
+        this.saveToStorage();
     }
 
     setRiskSettings(max: number, min: number) {
         this.max_stake = max;
         this.min_stake = min;
+        this.saveToStorage();
     }
 
     /**
-     * UNIFIED START: Listen to the active account and mirror to the target token.
+     * UNIFIED START: Listen to the active account and mirror to all target followers.
      */
     async startMirroring(activeApi: any) {
-        if (!this.target_token) return { error: { message: 'Target Token missing' } };
+        if (this.follower_tokens.length === 0) return { error: { message: 'No Follower Tokens linked' } };
         
         try {
             if (!activeApi) return { error: { message: 'Active connection not found' } };
-            
-            // Standard Deriv API check
-            const hasOnMessage = typeof activeApi.onMessage === 'function';
-            if (!hasOnMessage) {
-                return { error: { message: 'Active API initialized incorrectly' } };
-            }
+            if (typeof activeApi.onMessage !== 'function') return { error: { message: 'Active API not ready' } };
 
             this.active_api = activeApi;
             this.is_mirroring = true;
             
-            // 1. Authorize Target API
-            if (!this.target_api) {
-                this.target_api = generateDerivApiInstance() as any;
-                await (this.target_api as any).authorize(this.target_token);
-            }
+            // 1. Initialize Follower APIs in parallel
+            const authPromises = this.follower_tokens.map(async (token) => {
+                if (!this.follower_apis.has(token)) {
+                    const api = generateDerivApiInstance() as any;
+                    try {
+                        await api.authorize(token);
+                        this.follower_apis.set(token, api);
+                    } catch (e) {
+                        console.error(`[CopyTrading] Follower ${token.substring(0,4)} Auth Failed`);
+                    }
+                }
+            });
+            await Promise.all(authPromises);
 
             // 2. Subscribe to Active Account's trades
+            if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
+            
             this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
-                const msg = response?.data || response; // Support both structures
+                const msg = response?.data || response;
                 if (msg.msg_type === 'proposal_open_contract') {
                     const contract = msg.proposal_open_contract;
                     if (contract && contract.is_sold === 0 && contract.status === 'open') {
@@ -155,15 +215,13 @@ class CopyTradingLogic {
                 }
             });
 
-            // Ensure we are watching for trades on active connection
             this.active_api.send({ proposal_open_contract: 1, subscribe: 1 });
-
-            console.log('[CopyTrading] Unified Mirroring Active (Active -> Target)');
+            console.log(`[CopyTrading] Mirroring Active with ${this.follower_apis.size} followers`);
             return { success: true };
         } catch (err: any) {
             console.error('[CopyTrading] Start failed:', err);
             this.is_mirroring = false;
-            return { error: { message: err?.error?.message || err?.message || 'Connection failed' } };
+            return { error: { message: err?.message || 'Connection failed' } };
         }
     }
 
@@ -173,64 +231,68 @@ class CopyTradingLogic {
             this.unsubscribe_active.unsubscribe();
             this.unsubscribe_active = null;
         }
-        if (this.target_api) {
-            (this.target_api as any).disconnect();
-            this.target_api = null;
-        }
-        console.log('[CopyTrading] Unified Mirroring Stopped');
+        // Keep follower_apis connected for hot-restart, unless we explicitly disconnect.
+        // Or disconnect them if we want a clean stop.
+        this.follower_apis.forEach(api => api.disconnect());
+        this.follower_apis.clear();
+        console.log('[CopyTrading] Mirroring Stopped');
     }
 
-    private async executeTargetTrade(tradeData: TradeSignal) {
-        if (!this.target_api || !this.is_mirroring) return;
+    private async executeTargetTrades(tradeData: TradeSignal) {
+        if (!this.is_mirroring || this.follower_apis.size === 0) return;
         
-        try {
-            const { amount, symbol, contract_type, duration, duration_unit, barrier, basis } = tradeData;
-            const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
+        const { amount, symbol, contract_type, duration, duration_unit, barrier, basis } = tradeData;
+        const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
 
-            const request = {
-                buy: 1,
-                price: adjusted_amount,
-                parameters: {
-                    amount: adjusted_amount,
-                    basis: basis || 'stake',
-                    contract_type: contract_type,
-                    currency: (this.target_api as any).account_info?.currency || 'USD',
-                    duration: duration,
-                    duration_unit: duration_unit,
-                    symbol: symbol,
-                    barrier: barrier || undefined
-                }
-            };
+        this.follower_apis.forEach(async (api, token) => {
+            try {
+                const request = {
+                    buy: 1,
+                    price: adjusted_amount,
+                    parameters: {
+                        amount: adjusted_amount,
+                        basis: basis || 'stake',
+                        contract_type: contract_type,
+                        currency: api.account_info?.currency || 'USD',
+                        duration: duration,
+                        duration_unit: duration_unit,
+                        symbol: symbol,
+                        barrier: barrier || undefined
+                    }
+                };
 
-            const res = await (this.target_api as any).send(request);
-            if (res.error) console.error('[CopyTrading] Target trade error:', res.error.message);
-            else console.log('[CopyTrading] Mirror successful on target!');
-        } catch (e) {
-            console.error('[CopyTrading] Execution exception:', e);
-        }
+                const res = await api.send(request);
+                if (res.error) console.error(`[CopyTrading] Follower ${token.substring(0,4)} Error:`, res.error.message);
+                else console.log(`[CopyTrading] Mirror success on Follower ${token.substring(0,4)}`);
+            } catch (e) {
+                console.error(`[CopyTrading] Execution failed for ${token.substring(0,4)}:`, e);
+            }
+        });
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
         if (!this.is_mirroring) return;
-
         try {
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {
                 ...tradeData,
                 timestamp: serverTimestamp(),
-                master_account: (this.active_api as any)?.account_info?.loginid || 'active_ui'
+                master_account: this.active_api?.account_info?.loginid || 'active_ui'
             });
-            // Also handle locally immediately for lower latency
             this.handleSignal(tradeData);
         } catch (e) {
-            console.error('[CopyTrading] Cloud broadcast error:', e);
+            console.error('[CopyTrading] Broadcast error:', e);
         }
     }
 
     getStatus() {
         return {
             is_mirroring: this.is_mirroring,
-            has_target_token: !!this.target_token
+            followers_count: this.follower_tokens.length,
+            active_followers: this.follower_apis.size,
+            tokens: this.follower_tokens,
+            max_stake: this.max_stake,
+            min_stake: this.min_stake
         };
     }
 }

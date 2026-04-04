@@ -13,23 +13,28 @@ interface ClientStore {
 const MirrorHub: React.FC = observer(() => {
     const { client } = useStore() as { client: ClientStore };
     
-    // Target Token
-    const [targetToken, setTargetToken] = useState<string>('');
-    const [savedTargetToken, setSavedTargetToken] = useState<string | null>(null);
-
     // UI State
+    const [newToken, setNewToken] = useState<string>('');
+    const [status, setStatus] = useState(copy_trading_logic.getStatus());
     const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
-    const [isMirroring, setIsMirroring] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Risk Settings
-    const [maxStake, setMaxStake] = useState(100);
-    const [minStake, setMinStake] = useState(0.35);
+    const [maxStake, setMaxStake] = useState(status.max_stake);
+    const [minStake, setMinStake] = useState(status.min_stake);
+
+    // Sync status every 2 seconds
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setStatus(copy_trading_logic.getStatus());
+        }, 2000);
+        return () => clearInterval(timer);
+    }, []);
 
     // Inject styles
     useEffect(() => {
-        const styleId = 'copytrading-unified-styles';
+        const styleId = 'copytrading-v4-styles';
         if (!document.getElementById(styleId)) {
             const styleEl = document.createElement('style');
             styleEl.id = styleId;
@@ -40,12 +45,27 @@ const MirrorHub: React.FC = observer(() => {
                 }
                 .mirror-card {
                     background: #fff;
-                    border-radius: 24px;
-                    padding: 40px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+                    border-radius: 28px;
+                    padding: 35px;
+                    box-shadow: 0 25px 50px rgba(0,0,0,0.06);
                     animation: fadeInUp 0.5s ease-out;
-                    max-width: 800px;
+                    max-width: 900px;
                     margin: 0 auto;
+                }
+                .follower-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 18px 24px;
+                    background: #f8fafc;
+                    border: 1px solid #f1f5f9;
+                    border-radius: 16px;
+                    transition: all 0.2s;
+                    margin-bottom: 12px;
+                }
+                .follower-item:hover {
+                    border-color: #cbd5e1;
+                    transform: translateX(4px);
                 }
                 .qs-input {
                     padding: 14px 18px;
@@ -63,15 +83,41 @@ const MirrorHub: React.FC = observer(() => {
                     background-color: #fff;
                     box-shadow: 0 0 0 4px rgba(26,35,126,0.05);
                 }
-                .status-indicator {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 6px 14px;
-                    border-radius: 30px;
-                    font-size: 11px;
-                    font-weight: 800;
-                    letter-spacing: 0.5px;
+                .btn-primary {
+                    background: #1a237e;
+                    color: #fff;
+                    border: none;
+                    padding: 14px 28px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                }
+                .btn-primary:hover:not(:disabled) {
+                    transform: translateY(-2px);
+                    background: #0d124d;
+                    box-shadow: 0 8px 15px rgba(26,35,126,0.2);
+                }
+                .btn-danger {
+                    background: #fff1f2;
+                    color: #e11d48;
+                    border: 1px solid #ffe4e6;
+                    padding: 8px 16px;
+                    border-radius: 10px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .btn-danger:hover {
+                    background: #ffe4e6;
+                }
+                .status-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    margin-right: 8px;
                 }
             `;
             document.head.appendChild(styleEl);
@@ -92,50 +138,41 @@ const MirrorHub: React.FC = observer(() => {
         }
     }, [toast]);
 
-    // Load saved target token
-    useEffect(() => {
-        const t = localStorage.getItem('deriv_target_token');
-        if (t) {
-            setSavedTargetToken(t);
-            setTargetToken(t);
-            copy_trading_logic.setTargetToken(t);
+    const handleAddFollower = async () => {
+        if (!newToken) return;
+        setIsProcessing(true);
+        const res = await copy_trading_logic.addFollower(newToken);
+        if (res.success) {
+            setNewToken('');
+            setToast({ type: 'ok', text: 'Follower Account Added' });
+        } else {
+            setToast({ type: 'err', text: res.error || 'Failed to link' });
         }
-    }, []);
+        setIsProcessing(false);
+    };
 
-    const saveTargetToken = () => {
-        const t = targetToken.trim();
-        if (t.length < 10) { 
-            setToast({ type: 'ok', text: 'Target Token Cleared' }); 
-            localStorage.removeItem('deriv_target_token'); 
-            setSavedTargetToken(null); 
-            copy_trading_logic.setTargetToken('');
-            return; 
-        }
-        localStorage.setItem('deriv_target_token', t);
-        setSavedTargetToken(t);
-        copy_trading_logic.setTargetToken(t);
-        setToast({ type: 'ok', text: 'Target Account Linked' });
+    const handleRemoveFollower = (token: string) => {
+        copy_trading_logic.removeFollower(token);
+        setToast({ type: 'ok', text: 'Follower Removed' });
     };
 
     const handleToggleMirroring = async () => {
-        if (!savedTargetToken) {
-            setToast({ type: 'err', text: 'Target Account Token Required' });
+        if (status.followers_count === 0) {
+            setToast({ type: 'err', text: 'Add at least one follower first' });
             return;
         }
 
         setIsProcessing(true);
-        if (isMirroring) {
+        if (status.is_mirroring) {
             copy_trading_logic.stopMirroring();
-            setIsMirroring(false);
-            setToast({ type: 'ok', text: 'Mirroring Stopped' });
+            setToast({ type: 'ok', text: 'Mirroring System Offline' });
         } else {
             copy_trading_logic.setRiskSettings(maxStake, minStake);
             const res = await copy_trading_logic.startMirroring(api_base.api);
             if (res.error) {
-                setToast({ type: 'err', text: `Failed: ${res.error.message || 'Check Token'}` });
+                setToast({ type: 'err', text: `System Error: ${res.error.message || 'Check Connection'}` });
             } else {
-                setIsMirroring(true);
-                setToast({ type: 'ok', text: 'Real-Time Mirroring Active!' });
+                setToast({ type: 'ok', text: 'Universal Mirroring Active!' });
             }
         }
         setIsProcessing(false);
@@ -144,91 +181,129 @@ const MirrorHub: React.FC = observer(() => {
     return (
         <div style={{
             minHeight: '100vh',
-            padding: isMobile ? '20px 10px' : '40px',
-            backgroundColor: '#f4f7f9',
+            padding: isMobile ? '20px 15px' : '60px 40px',
+            backgroundColor: '#f8fafc',
             fontFamily: "'Outfit', sans-serif",
             boxSizing: 'border-box'
         }}>
             {/* Header Area */}
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <h1 style={{ margin: 0, fontSize: isMobile ? '28px' : '36px', color: '#1a237e', fontWeight: 900 }}>Mirror Hub</h1>
-                <p style={{ margin: '10px 0 0 0', color: '#64748b', fontSize: '16px' }}>Project your trades instantly to any target account</p>
+            <div style={{ textAlign: 'center', marginBottom: '50px' }}>
+                <h1 style={{ margin: 0, fontSize: isMobile ? '32px' : '44px', color: '#0f172a', fontWeight: 900, letterSpacing: '-0.025em' }}>
+                    Mirror Hub <span style={{ color: '#1a237e' }}>PRO</span>
+                </h1>
+                <p style={{ margin: '12px 0 0 0', color: '#64748b', fontSize: '18px', fontWeight: 500 }}>
+                    Project your trades to a network of follow accounts in real-time.
+                </p>
             </div>
 
-            {/* Mirror Unified Card */}
+            {/* Main Dashboard UI */}
             <div className="mirror-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '50px' }}>
+                    
+                    {/* Left side: Follower List & Controls */}
                     <div>
-                        <div className="status-indicator" style={{ background: isMirroring ? '#ecfdf5' : '#fef2f2', color: isMirroring ? '#059669' : '#dc2626', marginBottom: '10px' }}>
-                            {isMirroring ? '● SYSTEM ACTIVE' : '● SYSTEM OFFLINE'}
-                        </div>
-                        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Mirror Configuration</h2>
-                    </div>
-                    {isMirroring && (
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '12px 20px', background: '#f1f5f9', borderRadius: '15px' }}>
-                            <FaChartLine color="#1a237e" />
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>
-                                LIVE: {client.loginid} ➔ {savedTargetToken?.substring(0, 4)}...
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '40px' }}>
-                    {/* Left: Input & Primary Action */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <label style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Target Account API Token</label>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <input
-                                    type="password"
-                                    className="qs-input"
-                                    placeholder="Enter Target API Token"
-                                    value={targetToken}
-                                    onChange={(e) => setTargetToken(e.target.value)}
-                                    disabled={isMirroring}
-                                />
-                                {!isMirroring && (
-                                    <button onClick={saveTargetToken} style={{ padding: '0 25px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700 }}>
-                                        Link
-                                    </button>
-                                )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Follower Network</h2>
+                            <div style={{ 
+                                padding: '6px 14px', borderRadius: '30px', fontSize: '11px', fontWeight: 800,
+                                background: status.is_mirroring ? '#ecfdf5' : '#fef2f2',
+                                color: status.is_mirroring ? '#059669' : '#dc2626',
+                                border: `1px solid ${status.is_mirroring ? '#10b981' : '#ef4444'}`
+                            }}>
+                                {status.is_mirroring ? '● SYSTEM RUNNING' : '○ SYSTEM STANDBY'}
                             </div>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-                                Trades made on this site will be mirrored to the account linked with this token.
-                            </p>
                         </div>
 
-                        <button
+                        {/* Add New Follower */}
+                        <div style={{ marginBottom: '30px', display: 'flex', gap: '12px' }}>
+                            <input 
+                                type="password" 
+                                className="qs-input" 
+                                placeholder="Follower API Token"
+                                value={newToken}
+                                onChange={(e) => setNewToken(e.target.value)}
+                            />
+                            <button className="btn-primary" onClick={handleAddFollower} disabled={isProcessing}>
+                                {isProcessing ? '...' : 'ADD'}
+                            </button>
+                        </div>
+
+                        {/* Follower List */}
+                        <div style={{ minHeight: '200px' }}>
+                            {status.tokens.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', background: '#f8fafc', borderRadius: '20px', border: '2px dashed #e2e8f0' }}>
+                                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', fontWeight: 600 }}>No follow accounts linked.</p>
+                                    <p style={{ margin: '5px 0 0 0', color: '#cbd5e1', fontSize: '12px' }}>Enter an API token above to start building your network.</p>
+                                </div>
+                            ) : (
+                                status.tokens.map((token, idx) => (
+                                    <div key={token} className="follower-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ 
+                                                width: '40px', height: '40px', borderRadius: '12px', background: '#e0e7ff', color: '#1a237e',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px'
+                                            }}>
+                                                {idx + 1}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
+                                                    Token: {token.substring(0, 5)}...{token.substring(token.length - 4)}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+                                                    <span className="status-dot" style={{ background: status.is_mirroring ? '#10b981' : '#94a3b8' }}></span>
+                                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                                                        {status.is_mirroring ? 'Mirroring Active' : 'Linked'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button className="btn-danger" onClick={() => handleRemoveFollower(token)}>Remove</button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right side: Global Settings & Activation */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                        
+                        <div style={{ padding: '30px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FaShieldAlt color="#1a237e" /> Global Risk
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Max Stake Limit ($)</label>
+                                    <input type="number" className="qs-input" value={maxStake} onChange={(e) => setMaxStake(Number(e.target.value))} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Min Stake Floor ($)</label>
+                                    <input type="number" className="qs-input" value={minStake} onChange={(e) => setMinStake(Number(e.target.value))} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            className="btn-primary" 
                             onClick={handleToggleMirroring}
                             disabled={isProcessing}
-                            style={{
-                                width: '100%', padding: '20px', borderRadius: '16px', border: 'none',
-                                background: isMirroring ? '#ef4444' : '#1a237e',
-                                color: '#fff', fontWeight: 800, fontSize: '18px', cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                boxShadow: isMirroring ? '0 10px 20px rgba(239, 68, 68, 0.2)' : '0 10px 20px rgba(26, 35, 126, 0.2)',
+                            style={{ 
+                                height: '80px', fontSize: '20px', borderRadius: '20px',
+                                background: status.is_mirroring ? '#ef4444' : '#1a237e',
+                                boxShadow: status.is_mirroring ? '0 10px 30px rgba(239, 68, 68, 0.25)' : '0 10px 30px rgba(26, 35, 126, 0.25)',
                                 opacity: isProcessing ? 0.7 : 1
                             }}
                         >
-                            {isProcessing ? 'PROCESSING...' : (isMirroring ? 'STOP MIRRORING' : 'START MIRRORING')}
+                            {isProcessing ? 'SYNCING...' : (status.is_mirroring ? 'STOP NETWORK' : 'ACTIVATE NETWORK')}
                         </button>
-                    </div>
 
-                    {/* Right: Risk Management */}
-                    <div style={{ padding: '25px', background: '#f8fafc', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
-                        <h4 style={{ margin: '0 0 20px 0', display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
-                            <FaShieldAlt /> Safety Limits
-                        </h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Max Mirror Stake</label>
-                                <input type="number" className="qs-input" style={{ padding: '10px' }} value={maxStake} onChange={(e) => setMaxStake(Number(e.target.value))} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Min Mirror Stake</label>
-                                <input type="number" className="qs-input" style={{ padding: '10px' }} value={minStake} onChange={(e) => setMinStake(Number(e.target.value))} />
-                            </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
+                                <FaCog style={{ verticalDependencies: 'middle' }} /> MIRROR PERSISTENCE: <span style={{ color: '#059669' }}>ENABLED</span>
+                            </p>
+                            <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#cbd5e1' }}>
+                                Trades will mirror in background while you select bots or browse.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -238,17 +313,23 @@ const MirrorHub: React.FC = observer(() => {
             {toast && (
                 <div style={{
                     position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
-                    background: toast.type === 'ok' ? '#1a237e' : '#dc2626', color: '#fff',
-                    padding: '16px 32px', borderRadius: '100px', fontWeight: 700, boxShadow: '0 15px 30px rgba(0,0,0,0.15)',
+                    background: toast.type === 'ok' ? '#0f172a' : '#e11d48', color: '#fff',
+                    padding: '18px 36px', borderRadius: '100px', fontWeight: 700, boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
                     display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10000,
                     animation: 'fadeInUp 0.3s ease'
                 }}>
-                    {toast.type === 'ok' ? '✓' : '✕'} {toast.text}
+                    <span style={{ 
+                        width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px'
+                    }}>
+                        {toast.type === 'ok' ? '✓' : '✕'}
+                    </span>
+                    {toast.text}
                 </div>
             )}
             
-            <div style={{ padding: '60px 0', opacity: 0.4, fontSize: '12px', textAlign: 'center', fontWeight: 600 }}>
-                MIRROR HUB v3.0 • POWERED BY CLOUD SYNC • SECURE API BRIDGE
+            <div style={{ marginTop: '60px', opacity: 0.3, fontSize: '11px', textAlign: 'center', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                Mirror Hub v4.0 • Enterprise Cloud Sync • Multi-Follower Engine
             </div>
         </div>
     );

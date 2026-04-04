@@ -15,6 +15,7 @@ import RoutePromptDialog from '../components/route-prompt-dialog';
 import BotBuilder from '../pages/bot-builder';
 import Main from '../pages/main';
 import PlatformLoader from '../components/platform-loader/platform-loader';
+import { copy_trading_logic } from '../pages/copytrading/CopyTradingLogic';
 
 const AppContent = observer(() => {
     const [is_loading, setIsLoading] = React.useState(true);
@@ -105,6 +106,16 @@ const AppContent = observer(() => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    React.useEffect(() => {
+        if (client.is_logged_in && api_base.api) {
+            const status = copy_trading_logic.getStatus();
+            if (status.followers_count > 0 && !status.is_mirroring) {
+                console.log('[CopyTrading] Auto-resuming mirror network in background...');
+                copy_trading_logic.startMirroring(api_base.api);
+            }
+        }
+    }, [client.is_logged_in, client.loginid]);
 
     React.useEffect(() => {
         if (client.is_logged_in && client.is_landing_company_loaded) {
