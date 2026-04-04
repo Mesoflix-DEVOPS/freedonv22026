@@ -124,15 +124,29 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 16px' }}>
-            {isMirroring && (
-                <div style={{ 
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', 
-                    background: '#ecfdf5', border: '1px solid #10b981', borderRadius: '4px' 
+            {copy_trading_logic.getStatus().is_mirroring && (
+                <div style={{
+                    marginTop: '15px',
+                    padding: '10px 15px',
+                    background: '#0f172a',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    border: '1px solid #1e293b'
                 }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></div>
-                    <Text size='xxs' weight='bold' color='prominent' style={{ color: '#059669', fontSize: '10px' }}>
-                        MIRROR ACTIVE
-                    </Text>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ 
+                            width: '8px', height: '8px', borderRadius: '50%', 
+                            background: '#38bdf8', boxShadow: '0 0 10px #38bdf8' 
+                        }} />
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#f8fafc' }}>
+                            NETWORK SYNC LIVE
+                        </span>
+                     </div>
+                     <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>
+                        {copy_trading_logic.getStatus().active_followers} Accounts Active
+                     </span>
                 </div>
             )}
             {is_mobile && is_drawer_open && (

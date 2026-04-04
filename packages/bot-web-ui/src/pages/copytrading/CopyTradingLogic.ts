@@ -58,12 +58,13 @@ class CopyTradingLogic {
     // Tracking
     private last_mirrored_contract_id: number | null = null;
     private processed_signal_ids: Set<string> = new Set();
+    private mirrored_local_ids: Set<number> = new Set();
 
-    // Risk targets (Global)
     private max_stake: number = 100;
     private min_stake: number = 0.35;
-
-    private is_mirroring: boolean = false;
+    
+    private is_sync_active: boolean = false;
+    private paused_tokens: Set<string> = new Set();
     private active_api: any = null;
     private unsubscribe_active: any = null;
     private engine_trace: string[] = [];
@@ -72,9 +73,9 @@ class CopyTradingLogic {
         if (typeof window !== 'undefined') {
             this.loadFromStorage();
             this.initGlobalListener();
-            // Auto-init session if mirroring was saved as active
-            if (this.is_mirroring && this.follower_tokens.length > 0) {
-                console.log('[CopyTrading] 🔄 Auto-initializing mirroring session...');
+            // Auto-init session if network sync was saved as active
+            if (this.is_sync_active && this.follower_tokens.length > 0) {
+                console.log('[NetworkSync] 🔄 Auto-initializing network sessions...');
                 this.initAuthorizedSession();
             }
         }
@@ -97,11 +98,13 @@ class CopyTradingLogic {
             
             const savedMax = localStorage.getItem('deriv_mirror_max_stake');
             const savedMin = localStorage.getItem('deriv_mirror_min_stake');
-            const savedMirroring = localStorage.getItem('deriv_is_mirroring');
+            const savedSync = localStorage.getItem('deriv_is_network_sync') || localStorage.getItem('deriv_is_mirroring');
+            const savedPaused = localStorage.getItem('deriv_paused_tokens');
             
             if (savedMax) this.max_stake = Number(savedMax);
             if (savedMin) this.min_stake = Number(savedMin);
-            if (savedMirroring) this.is_mirroring = savedMirroring === 'true';
+            if (savedSync) this.is_sync_active = savedSync === 'true';
+            if (savedPaused) this.paused_tokens = new Set(JSON.parse(savedPaused));
             
             const savedMaster = localStorage.getItem('deriv_master_token');
             if (savedMaster) this.master_token = savedMaster;
@@ -114,10 +117,19 @@ class CopyTradingLogic {
         localStorage.setItem('deriv_follower_tokens', JSON.stringify(this.follower_tokens));
         localStorage.setItem('deriv_mirror_max_stake', this.max_stake.toString());
         localStorage.setItem('deriv_mirror_min_stake', this.min_stake.toString());
-        localStorage.setItem('deriv_is_mirroring', this.is_mirroring.toString());
+        localStorage.setItem('deriv_is_network_sync', this.is_sync_active.toString());
+        localStorage.setItem('deriv_paused_tokens', JSON.stringify([...this.paused_tokens]));
         if (this.master_token) localStorage.setItem('deriv_master_token', this.master_token);
         else localStorage.removeItem('deriv_master_token');
     }
+Line 113:     private saveToStorage() {
+114:         localStorage.setItem('deriv_follower_tokens', JSON.stringify(this.follower_tokens));
+115:         localStorage.setItem('deriv_mirror_max_stake', this.max_stake.toString());
+116:         localStorage.setItem('deriv_mirror_min_stake', this.min_stake.toString());
+117:         localStorage.setItem('deriv_is_mirroring', this.is_mirroring.toString());
+118:         if (this.master_token) localStorage.setItem('deriv_master_token', this.master_token);
+119:         else localStorage.removeItem('deriv_master_token');
+120:     }
 
     /**
      * Authorized all followers in the background. 
@@ -178,7 +190,7 @@ class CopyTradingLogic {
             }
         }
         
-        if (this.is_mirroring && !this.balance_timer) {
+        if (this.is_sync_active && !this.balance_timer) {
             this.startBalanceLoop();
         }
     }
@@ -313,16 +325,16 @@ class CopyTradingLogic {
     }
 
     async startMirroring(activeApi?: any) {
-        if (this.follower_tokens.length === 0) return { error: { message: 'No Follower Tokens linked' } };
+        if (this.follower_tokens.length === 0) return { error: { message: 'No accounts authorized' } };
         
         try {
-            this.is_mirroring = true;
+            this.is_sync_active = true;
             this.saveToStorage();
 
-            // 1. Initialize Follower APIs
+            // 1. Initialize Network APIs
             await this.initAuthorizedSession();
 
-            // 2. Subscribe to Active Account's trades (if provided)
+            // 2. Subscribe to Active UI Account's trades
             if (activeApi && typeof activeApi.onMessage === 'function') {
                 this.active_api = activeApi;
                 if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
@@ -330,17 +342,16 @@ class CopyTradingLogic {
                 this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
                     const msg = response?.data || response;
                     
-                    // Catch both Purchase and Open Contract events for maximum reliability
                     if (msg.msg_type === 'buy') {
-                        console.log('[CopyTrading] 🛒 Master Purchase detected:', msg.buy.contract_id);
+                        console.log('[NetworkSync] 🛒 UI Purchase detected:', msg.buy.contract_id);
                     }
 
                     if (msg.msg_type === 'proposal_open_contract') {
                         const contract = msg.proposal_open_contract;
                         if (contract && contract.is_sold === 0 && contract.status === 'open') {
-                            const isNew = this.last_mirrored_contract_id !== contract.contract_id;
-                            if (isNew) {
-                                console.log(`[CopyTrading] 📢 Broadcasting Master Trade: ${contract.contract_type} on ${contract.underlying}`);
+                             const isNew = this.last_mirrored_contract_id !== contract.contract_id;
+                             if (isNew) {
+                                this.addTrace(`Signal from UI: ${contract.contract_type} ${contract.underlying}`);
                                 this.broadcastTrade({
                                     contract_id: contract.contract_id,
                                     amount: contract.buy_price || contract.amount,
@@ -350,9 +361,10 @@ class CopyTradingLogic {
                                     duration_unit: contract.duration_unit || 's',
                                     barrier: contract.barrier,
                                     barrier2: contract.barrier2,
-                                    basis: 'stake'
+                                    basis: 'stake',
+                                    master_account: this.active_api?.account_info?.loginid || 'ui'
                                 });
-                            }
+                             }
                         }
                     }
                 });
@@ -360,13 +372,13 @@ class CopyTradingLogic {
                 this.active_api.send({ proposal_open_contract: 1, subscribe: 1 });
             }
 
-            console.log(`[CopyTrading] Mirror Hub ACTIVE with ${this.follower_apis.size} followers`);
+            this.addTrace("Multi-Account Network Online");
             this.startBalanceLoop();
             return { success: true };
         } catch (err: any) {
-            console.error('[CopyTrading] Start failed:', err);
-            this.is_mirroring = false;
-            return { error: { message: err?.message || 'Connection failed' } };
+            console.error('[NetworkSync] Activation failed:', err);
+            this.is_sync_active = false;
+            return { error: { message: err?.message || 'Sync activation failed' } };
         }
     }
 
@@ -413,8 +425,19 @@ class CopyTradingLogic {
         });
     }
 
+    toggleTokenSync(token: string) {
+        if (this.paused_tokens.has(token)) {
+            this.paused_tokens.delete(token);
+            this.addTrace(`Account Resumed: ...${token.slice(-4)}`);
+        } else {
+            this.paused_tokens.add(token);
+            this.addTrace(`Account Paused: ...${token.slice(-4)}`);
+        }
+        this.saveToStorage();
+    }
+
     stopMirroring() {
-        this.is_mirroring = false;
+        this.is_sync_active = false;
         this.saveToStorage();
         if (this.unsubscribe_active) {
             this.unsubscribe_active.unsubscribe();
@@ -430,7 +453,7 @@ class CopyTradingLogic {
         this.follower_trades.clear();
         this.follower_subscriptions.forEach(sub => sub.unsubscribe());
         this.follower_subscriptions.clear();
-        console.log('[CopyTrading] Mirror Hub Stopped');
+        this.addTrace("Network Sync Stopped");
     }
 
     private async executeWithReAuth(api: any, token: string, request: object) {
@@ -480,6 +503,18 @@ class CopyTradingLogic {
         this.follower_apis.forEach(async (api, token) => {
             try {
                 if (!api || typeof api.send !== 'function') return;
+                
+                // SKIP IF PAUSED
+                if (this.paused_tokens.has(token)) {
+                    console.log(`[NetworkSync] Skipping paused account: ...${token.slice(-4)}`);
+                    return;
+                }
+
+                // SKIP IF SOURCE
+                if (tradeData.master_account === api.account_info?.loginid) {
+                    console.log(`[NetworkSync] Skipping source account: ${tradeData.master_account}`);
+                    return;
+                }
 
                 const traceMsg = `Mirroring ${contract_type} ${symbol} (${duration}${duration_unit}) to ...${token.slice(-4)}`;
                 this.addTrace(traceMsg);
@@ -525,6 +560,8 @@ class CopyTradingLogic {
                     const activeBal = this.follower_balances.get(token);
                     if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: `Err: ${err_msg.substring(0, 15)}` });
                 } else {
+                    const local_cid = buy_res.buy.contract_id;
+                    this.mirrored_local_ids.add(local_cid);
                     this.last_trade_time = new Date().toLocaleTimeString();
                     this.addTrace(`Success 🏆 (...${token.slice(-4)})`);
                     
@@ -545,6 +582,9 @@ class CopyTradingLogic {
                             }
                         });
                     }, 3000);
+
+                    // Clean up tracking set after a while
+                    setTimeout(() => this.mirrored_local_ids.delete(local_cid), 60000);
                 }
             } catch (e) {
                 console.error(`[CopyTrading] 💥 Execution exception for ${token.substring(0,4)}:`, e);
@@ -608,7 +648,12 @@ class CopyTradingLogic {
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
-        if (!this.is_mirroring) return;
+        if (!this.is_sync_active) return;
+
+        // PREVENTION: Don't broadcast if this contract was created by the engine (mirror)
+        if (this.mirrored_local_ids.has(tradeData.contract_id)) {
+            return;
+        }
         
         try {
             const cleanData = Object.fromEntries(
@@ -623,7 +668,7 @@ class CopyTradingLogic {
             });
             this.handleSignal(tradeData);
         } catch (e) {
-            console.error('[CopyTrading] Broadcast error:', e);
+            console.error('[NetworkSync] Broadcast error:', e);
         }
     }
 
@@ -634,10 +679,11 @@ class CopyTradingLogic {
 
     getStatus() {
         return {
-            is_mirroring: this.is_mirroring,
+            is_mirroring: this.is_sync_active,
             followers_count: this.follower_tokens.length,
             active_followers: this.follower_apis.size,
             tokens: this.follower_tokens,
+            paused_tokens: [...this.paused_tokens],
             balances: Object.fromEntries(this.follower_balances),
             trades: Object.fromEntries(this.follower_trades),
             master_balance: this.master_balance,

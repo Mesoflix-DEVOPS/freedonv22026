@@ -213,25 +213,36 @@ const MirrorHub: React.FC = observer(() => {
     };
 
     const handleToggleMirroring = async () => {
+    const toggleNetwork = async () => {
         if (status.followers_count === 0) {
             setToast({ type: 'err', text: 'Auth at least one token first' });
             return;
         }
 
-        setIsProcessing(true);
         if (status.is_mirroring) {
             copy_trading_logic.stopMirroring();
-            setToast({ type: 'ok', text: 'Multi-Trading System Stopped' });
+            setToast({ text: 'Network Sync Offline', type: 'info' });
         } else {
             copy_trading_logic.setRiskSettings(maxStake, minStake);
             const res = await copy_trading_logic.startMirroring(api_base.api);
-            if (res.error) {
-                setToast({ type: 'err', text: `System Error: ${res.error.message || 'Check Connection'}` });
+            if (res.success) {
+                setToast({ text: 'Multi-Auth Network Online', type: 'success' });
             } else {
-                setToast({ type: 'ok', text: 'Engine Online: All tokens ready!' });
+                setToast({ text: res.error.message || 'System Error', type: 'error' });
             }
         }
-        setIsProcessing(false);
+    };
+
+    const togglePause = (token: string) => {
+        copy_trading_logic.toggleTokenSync(token);
+        setToast({ text: 'Account status updated', type: 'info' });
+    };
+
+    const removeAccount = (token: string) => {
+        if (window.confirm('Remove this account from the network?')) {
+            copy_trading_logic.removeFollower(token);
+            setToast({ text: 'Account removed', type: 'info' });
+        }
     };
 
     const masterDisplay = status.master_balance || {
@@ -243,40 +254,51 @@ const MirrorHub: React.FC = observer(() => {
 
     return (
         <div className="engine-container">
-            {/* Header Area */}
-            <div style={{ textAlign: 'center', marginBottom: isMobile ? '20px' : '40px' }}>
-                <h1 style={{ margin: 0, fontSize: isMobile ? '26px' : '42px', fontWeight: 900, color: '#0f172a' }}>
-                    Multi-Auth <span style={{ color: '#2563eb' }}>Engine</span>
-                </h1>
-                <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: isMobile ? '13px' : '16px', fontWeight: 500 }}>
-                    Broadcast active trading commands to all authorized accounts.
-                </p>
-            </div>
-
             <div className="mirror-card">
-                {/* Main Auth Profile */}
-                <div className="master-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <div style={{ 
-                            width: isMobile ? '40px' : '55px', height: isMobile ? '40px' : '55px', 
-                            borderRadius: '14px', background: 'rgba(255,255,255,0.1)', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '18px' : '22px'
-                        }}>
-                             ⚙️
+                {/* Unified Sync Header */}
+                <div style={{ 
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', 
+                    borderRadius: '24px', padding: '40px', color: '#fff', marginBottom: '30px',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'relative', zIndex: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+                            <div style={{ 
+                                background: 'rgba(255,255,255,0.1)', padding: '12px', borderRadius: '15px',
+                                backdropFilter: 'blur(10px)'
+                            }}>
+                                <FaShieldAlt size={24} color="#38bdf8" />
+                            </div>
+                            <h1 style={{ fontSize: '32px', margin: 0, fontWeight: 800, letterSpacing: '-0.5px' }}>
+                                Multi-Auth <span style={{ color: '#38bdf8' }}>Network</span>
+                            </h1>
                         </div>
-                        <div>
-                            <div style={{ fontSize: '10px', fontWeight: 800, opacity: 0.6, letterSpacing: '1px' }}>CONTROL SESSION</div>
-                            <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 900 }}>{masterDisplay.loginid}</div>
-                        </div>
-                    </div>
-                    <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                        <div style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: 900 }}>
-                            {typeof masterDisplay.balance === 'number' ? masterDisplay.balance.toLocaleString(undefined, { minimumFractionDigits: 2 }) : masterDisplay.balance}
-                            <span style={{ fontSize: '14px', marginLeft: '5px', opacity: 0.6 }}>{masterDisplay.currency}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end', gap: '5px' }}>
-                            <span className="status-dot" style={{ background: '#22c55e' }}></span>
-                            <span style={{ fontSize: '10px', fontWeight: 800, opacity: 0.7 }}>CONTROL ACTIVE</span>
+                        <p style={{ color: '#94a3b8', fontSize: '16px', maxWidth: '500px', margin: '0 0 25px 0' }}>
+                            Management console for synchronized multi-account trading sessions.
+                        </p>
+                        
+                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                            <button 
+                                onClick={toggleNetwork}
+                                style={{
+                                    background: status.is_mirroring ? '#ef4444' : '#38bdf8',
+                                    color: '#fff', border: 'none', padding: '12px 30px', 
+                                    borderRadius: '12px', fontWeight: 800, cursor: 'pointer',
+                                    transition: 'all 0.3s ease', boxShadow: '0 10px 20px rgba(56, 189, 248, 0.2)'
+                                }}
+                            >
+                                {status.is_mirroring ? 'DEACTIVATE NETWORK' : 'INITIALIZE SYNC ENGINE'}
+                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '8px 16px', borderRadius: '10px' }}>
+                                <div style={{ 
+                                    width: '8px', height: '8px', borderRadius: '50%', 
+                                    background: status.is_mirroring ? '#22c55e' : '#64748b',
+                                    boxShadow: status.is_mirroring ? '0 0 10px #22c55e' : 'none'
+                                }} />
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>
+                                    {status.is_mirroring ? 'NETWORK LIVE' : 'OFFLINE'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -305,17 +327,6 @@ const MirrorHub: React.FC = observer(() => {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Broadcast Network</h2>
-                            <div className="activity-badge" style={{
-                                background: status.is_mirroring ? '#dcfce7' : '#fee2e2',
-                                color: status.is_mirroring ? '#166534' : '#991b1b',
-                                border: `1px solid ${status.is_mirroring ? '#bbf7d0' : '#fecaca'}`
-                            }}>
-                                {status.is_mirroring ? 'ENGINE LIVE' : 'ENGINE STANDBY'}
-                            </div>
-                        </div>
-
                         {/* Add New Tokens */}
                         <div style={{ marginBottom: '25px', display: 'flex', gap: '10px' }}>
                             <input 
@@ -337,37 +348,75 @@ const MirrorHub: React.FC = observer(() => {
                                     <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>No accounts authorized yet.</p>
                                 </div>
                             ) : (
-                                status.tokens.map((token, idx) => {
-                                    const accountInfo = status.balances?.[token];
+                                status.tokens.map((token) => {
+                                    const bal = status.balances[token];
+                                    const isPaused = status.paused_tokens?.includes(token);
                                     return (
-                                        <div key={token} className="follower-item">
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div style={{ display: 'flex', gap: '12px' }}>
-                                                    <div style={{ 
-                                                        width: '36px', height: '36px', borderRadius: '10px', background: '#f1f5f9',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#475569', fontSize: '13px'
-                                                    }}>
-                                                        {idx + 1}
-                                                    </div>
-                                                    <div>
-                                                        <div style={{ fontSize: '14px', fontWeight: 800 }}>{accountInfo?.loginid || `Token: ...${token.slice(-4)}`}</div>
-                                                        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, marginTop: '2px' }}>
-                                                            <span className="status-dot" style={{ background: status.is_mirroring ? '#22c55e' : '#94a3b8' }}></span>
-                                                            {accountInfo?.last_status || 'Session Standby'}
-                                                        </div>
+                                        <div key={token} style={{ 
+                                            background: '#fff', borderRadius: '20px', padding: '20px',
+                                            border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                                            transition: 'transform 0.2s ease', position: 'relative', marginBottom: '15px'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>Account Network ID</div>
+                                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {bal?.loginid || `...${token.slice(-4)}`}
+                                                        {isPaused && (
+                                                            <span style={{ fontSize: '9px', background: '#fef2f2', color: '#ef4444', padding: '2px 6px', borderRadius: '4px' }}>PAUSED</span>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>
-                                                        {accountInfo?.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span style={{ fontSize: '10px' }}>{accountInfo?.currency}</span>
-                                                    </div>
-                                                    <button className="btn-danger" style={{ marginTop: '5px' }} onClick={() => copy_trading_logic.removeFollower(token)}>Clear Auth</button>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button 
+                                                        onClick={() => togglePause(token)}
+                                                        title={isPaused ? "Resume syncing" : "Pause syncing"}
+                                                        style={{ 
+                                                            border: 'none', background: isPaused ? '#f0fdf4' : '#f8fafc', 
+                                                            color: isPaused ? '#22c55e' : '#64748b',
+                                                            width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        }}
+                                                    >
+                                                        {isPaused ? '▶️' : '⏸️'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => removeAccount(token)}
+                                                        title="Remove account"
+                                                        style={{ 
+                                                            border: 'none', background: '#fff5f5', color: '#ff4d4f',
+                                                            width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        }}
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 </div>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+                                                <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '12px' }}>
+                                                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Balance</div>
+                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
+                                                        {bal ? `${bal.balance.toLocaleString()} ${bal.currency}` : '---'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div style={{ 
+                                                display: 'flex', alignItems: 'center', gap: '8px', 
+                                                fontSize: '11px', fontWeight: 700, color: bal?.last_status?.includes('Err') ? '#ef4444' : '#22c55e' 
+                                            }}>
+                                                <div style={{ 
+                                                    width: '6px', height: '6px', borderRadius: '50%', 
+                                                    background: isPaused ? '#64748b' : (bal?.last_status?.includes('Err') ? '#ef4444' : '#22c55e') 
+                                                }} />
+                                                {isPaused ? 'SYNC PAUSED' : (bal?.last_status || 'READY')}
                                             </div>
 
                                             {/* Activity Feed Snippet */}
                                             {status.trades?.[token] && status.trades[token].length > 0 && (
-                                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', opacity: isPaused ? 0.5 : 1 }}>
                                                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
                                                         {status.trades[token].map((trade: any, tIdx: number) => (
                                                             <div key={`${token}-${trade.contract_id}-${tIdx}`} style={{
