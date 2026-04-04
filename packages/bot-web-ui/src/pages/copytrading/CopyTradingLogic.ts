@@ -24,6 +24,7 @@ interface TradeSignal {
     duration: number;
     duration_unit: string;
     barrier?: string;
+    barrier2?: string;
     basis: string;
     timestamp?: any;
     master_account?: string;
@@ -43,10 +44,9 @@ interface DerivApi {
 class CopyTradingLogic {
     private follower_tokens: string[] = [];
     private follower_apis: Map<string, any> = new Map();
-    private is_mirroring: boolean = false;
-    private active_api: any = null;
-    private unsubscribe_active: { unsubscribe: () => void } | null = null;
     private unsubscribe_firestore: (() => void) | null = null;
+    
+    private last_trade_time: string | null = null;
     
     // Tracking
     private last_mirrored_contract_id: number | null = null;
@@ -80,8 +80,11 @@ class CopyTradingLogic {
             
             const savedMax = localStorage.getItem('deriv_mirror_max_stake');
             const savedMin = localStorage.getItem('deriv_mirror_min_stake');
+            const savedMirroring = localStorage.getItem('deriv_is_mirroring');
+            
             if (savedMax) this.max_stake = Number(savedMax);
             if (savedMin) this.min_stake = Number(savedMin);
+            if (savedMirroring) this.is_mirroring = savedMirroring === 'true';
         } catch (e) {
             console.error('[CopyTrading] Storage load failed:', e);
         }
@@ -91,16 +94,21 @@ class CopyTradingLogic {
         localStorage.setItem('deriv_follower_tokens', JSON.stringify(this.follower_tokens));
         localStorage.setItem('deriv_mirror_max_stake', this.max_stake.toString());
         localStorage.setItem('deriv_mirror_min_stake', this.min_stake.toString());
+        localStorage.setItem('deriv_is_mirroring', this.is_mirroring.toString());
     }
 
     private initGlobalListener() {
         const signalsRef = collection(db, 'realtime_copy_signals');
-        const oneMinuteAgo = new Date(Date.now() - 60000);
+        // Lenient 2-minute window to avoid missing signals due to clock drift
+        const twoMinutesAgo = new Date(Date.now() - 120000);
+        
+        console.log('[CopyTrading] 📡 Firestore listener initializing...');
+
         const q = query(
             signalsRef, 
-            where('timestamp', '>', Timestamp.fromDate(oneMinuteAgo)),
+            where('timestamp', '>', Timestamp.fromDate(twoMinutesAgo)),
             orderBy('timestamp', 'desc'), 
-            limit(5)
+            limit(10)
         );
 
         this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
@@ -111,9 +119,15 @@ class CopyTradingLogic {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
-                        console.log(`[CopyTrading] 📥 Received signal from Firestore: ${signal.contract_type} ${signal.symbol}`);
+                        console.log(`[CopyTrading] 📥 Received signal from Firestore: ${signal.contract_type} ${signal.symbol} | DocID: ${change.doc.id}`);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
+
+                        // Prevent ID set from growing too large
+                        if (this.processed_signal_ids.size > 200) {
+                            const firstValue = this.processed_signal_ids.values().next().value;
+                            if (firstValue) this.processed_signal_ids.delete(firstValue);
+                        }
                     }
                 }
             });
@@ -214,6 +228,7 @@ class CopyTradingLogic {
                             duration: contract.duration || (contract.date_expiry - contract.date_start),
                             duration_unit: contract.duration_unit || 's',
                             barrier: contract.barrier,
+                            barrier2: contract.barrier2,
                             basis: 'stake'
                         });
                     }
@@ -311,6 +326,9 @@ class CopyTradingLogic {
                 if (barrier !== undefined && barrier !== null && barrier !== '') {
                     proposal_req.barrier = barrier;
                 }
+                if (tradeData.barrier2 !== undefined && tradeData.barrier2 !== null && tradeData.barrier2 !== '') {
+                    proposal_req.barrier2 = tradeData.barrier2;
+                }
 
                 const proposal_res = await this.executeWithReAuth(api, token, proposal_req);
                 if (proposal_res.error) {
@@ -335,7 +353,8 @@ class CopyTradingLogic {
                 if (buy_res.error) {
                     console.error(`[CopyTrading] ❌ Buy failed for ${token.substring(0,4)}:`, buy_res.error.message, buy_res.error.code);
                 } else {
-                    console.log(`[CopyTrading] ✅ Mirror SUCCESS on Follower ${token.substring(0,4)} | Contract ID: ${buy_res.buy.contract_id}`);
+                    this.last_trade_time = new Date().toLocaleTimeString();
+                    console.log(`[CopyTrading] ✅ Mirror SUCCESS on Follower ${token.substring(0,4)} | Contract ID: ${buy_res.buy.contract_id} | Time: ${this.last_trade_time}`);
                     
                     // Request balance update for this follower to confirm change
                     api.send({ balance: 1 }).then((balRes: any) => {
@@ -351,7 +370,10 @@ class CopyTradingLogic {
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
-        if (!this.is_mirroring) return;
+        if (!this.is_mirroring) {
+            console.log('[CopyTrading] ⚠️ Skipping broadcast: Mirror network is OFF.');
+            return;
+        }
         try {
             // Filter undefined values for Firebase safety
             const cleanData = Object.fromEntries(
@@ -377,7 +399,8 @@ class CopyTradingLogic {
             active_followers: this.follower_apis.size,
             tokens: this.follower_tokens,
             max_stake: this.max_stake,
-            min_stake: this.min_stake
+            min_stake: this.min_stake,
+            last_trade_time: this.last_trade_time
         };
     }
 }
