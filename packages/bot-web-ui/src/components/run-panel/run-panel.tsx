@@ -13,9 +13,10 @@ import { popover_zindex } from 'Constants/z-indexes';
 import { useDBotStore } from 'Stores/useDBotStore';
 
 type TStatisticsTile = {
-    content: React.ElementType | string;
-    contentClassName: string;
+    content: React.ReactNode;
+    contentClassName?: string;
     title: string;
+    alignment?: string;
 };
 
 type TStatisticsSummary = {
@@ -29,6 +30,7 @@ type TStatisticsSummary = {
     total_profit: number;
     won_contracts: number;
 };
+
 type TDrawerHeader = {
     is_clear_stat_disabled: boolean;
     is_mobile: boolean;
@@ -40,7 +42,7 @@ type TDrawerContent = {
     active_index: number;
     is_drawer_open: boolean;
     active_tour: string;
-    setActiveTabIndex: () => void;
+    setActiveTabIndex: (index: number) => void;
 };
 
 type TDrawerFooter = {
@@ -122,22 +124,22 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
         />
     );
 
-const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
+const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: any) => {
     return (
-        <>
-            <Tabs active_index={active_index} onTabItemClick={setActiveTabIndex} top>
-                <div id='db-run-panel-tab__summary' label={localize('Summary')}>
+        <div className='run-panel__drawer-content'>
+            <Tabs active_index={active_index} onTabItemClick={(idx: number) => setActiveTabIndex(idx)} top>
+                <div id='db-run-panel-tab__summary' label={localize('Summary')} className='run-panel__tab'>
                     <Summary is_drawer_open={is_drawer_open} />
                 </div>
-                <div id='db-run-panel-tab__transactions' label={localize('Transactions')}>
+                <div id='db-run-panel-tab__transactions' label={localize('Transactions')} className='run-panel__tab'>
                     <Transactions is_drawer_open={is_drawer_open} />
                 </div>
-                <div id='db-run-panel-tab__journal' label={localize('Journal')}>
+                <div id='db-run-panel-tab__journal' label={localize('Journal')} className='run-panel__tab'>
                     <Journal />
                 </div>
             </Tabs>
-            {((is_drawer_open && active_index !== 2) || active_tour) && <StatisticsSummary {...props} />}
-        </>
+            {((is_drawer_open && active_index !== 2) || active_tour) && <StatisticsSummary {...(props as any)} />}
+        </div>
     );
 };
 
@@ -304,7 +306,7 @@ const RunPanel = observer(() => {
                     })}
                     contentClassName='run-panel__content'
                     header={header}
-                    footer={is_desktop && footer}
+                    footer={is_desktop ? footer : undefined}
                     is_open={is_drawer_open}
                     toggleDrawer={toggleDrawer}
                     width={366}
@@ -314,7 +316,7 @@ const RunPanel = observer(() => {
                 </Drawer>
                 {!is_desktop && <MobileDrawerFooter />}
             </div>
-            <SelfExclusion onRunButtonClick={onRunButtonClick} />
+            <SelfExclusion {...({ onRunButtonClick } as any)} />
             <StatisticsInfoModal
                 is_mobile={!is_desktop}
                 is_statistics_info_modal_open={is_statistics_info_modal_open}

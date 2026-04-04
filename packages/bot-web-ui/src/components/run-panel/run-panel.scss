@@ -120,11 +120,13 @@
     }
     &-tab {
         &__content {
-            height: calc(100vh - 42rem);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
 
             &--no-stat {
-                height: var(--drawer-content-height-no-stat);
+                @extend .run-panel-tab__content;
             }
             &--mobile {
                 display: flex;
@@ -147,6 +149,37 @@
             height: 2.6rem !important;
             min-width: 8rem;
         }
+    }
+    
+    &__drawer-content {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        .dc-tabs {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+
+            &__content {
+                flex: 1;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+        }
+    }
+
+    &__tabs {
+        flex-shrink: 0;
+    }
+
+    &__tab {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 }
 
