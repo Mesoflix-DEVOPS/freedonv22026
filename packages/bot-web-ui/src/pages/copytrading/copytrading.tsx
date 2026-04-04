@@ -214,7 +214,7 @@ const MirrorHub: React.FC = observer(() => {
 
     const toggleNetwork = async () => {
         if (status.followers_count === 0) {
-            setToast({ type: 'err', text: 'Auth at least one token first' });
+            setToast({ type: 'error', text: 'Auth at least one token first' });
             return;
         }
 
@@ -222,6 +222,7 @@ const MirrorHub: React.FC = observer(() => {
             copy_trading_logic.stopMirroring();
             setToast({ text: 'Network Sync Offline', type: 'info' });
         } else {
+            setIsProcessing(true);
             copy_trading_logic.setRiskSettings(maxStake, minStake);
             const res = await copy_trading_logic.startMirroring(api_base.api);
             if (res.success) {
@@ -229,6 +230,7 @@ const MirrorHub: React.FC = observer(() => {
             } else {
                 setToast({ text: res.error.message || 'System Error', type: 'error' });
             }
+            setIsProcessing(false);
         }
     };
 
@@ -468,7 +470,7 @@ const MirrorHub: React.FC = observer(() => {
 
                         <button 
                             className="btn-primary" 
-                            onClick={handleToggleMirroring}
+                            onClick={toggleNetwork}
                             disabled={isProcessing}
                             style={{ 
                                 height: isMobile ? '70px' : '100px', fontSize: isMobile ? '18px' : '22px', borderRadius: '20px',
