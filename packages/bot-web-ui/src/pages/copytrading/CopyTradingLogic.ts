@@ -111,6 +111,7 @@ class CopyTradingLogic {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
+                        console.log(`[CopyTrading] 📥 Received signal from Firestore: ${signal.contract_type} ${signal.symbol}`);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
                     }
@@ -187,9 +188,12 @@ class CopyTradingLogic {
                         api = generateDerivApiInstance() as any;
                         this.follower_apis.set(token, api);
                     }
-                    await api.authorize(token);
+                    await api.authorize(token).then((res: any) => {
+                        api.account_info = res.authorize;
+                        console.log(`[CopyTrading] Follower ${token.substring(0, 4)} Authorized: ${res.authorize.loginid} (${res.authorize.currency})`);
+                    });
                 } catch (e) {
-                    console.error(`[CopyTrading] Follower ${token.substring(0,4)} Auth Failed`, e);
+                    console.error(`[CopyTrading] Follower ${token.substring(0, 4)} Auth Failed`, e);
                 }
             });
             await Promise.all(authPromises);
@@ -240,26 +244,46 @@ class CopyTradingLogic {
     }
 
     private async executeWithReAuth(api: any, token: string, request: object) {
-        let res = await api.send(request);
-        
-        if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
-            console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
-            try {
-                await api.authorize(token);
+        try {
+            let res = await api.send(request);
+            
+            if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
+                console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
+                await api.authorize(token).then((authRes: any) => {
+                    api.account_info = authRes.authorize;
+                });
                 // Retry once
                 res = await api.send(request);
-            } catch (reAuthErr) {
-                console.error(`[CopyTrading] Re-auth failed for ${token.substring(0,4)}`);
-                throw new Error('Follower Authorization Failed');
             }
+            return res;
+        } catch (e) {
+            console.error(`[CopyTrading] Request failed for ${token.substring(0,4)}:`, e);
+            return { error: { message: 'Network or internal error' } };
         }
-        return res;
     }
 
     private async executeTargetTrades(tradeData: TradeSignal) {
-        if (!this.is_mirroring || this.follower_apis.size === 0) return;
+        if (!this.is_mirroring) {
+            console.warn('[CopyTrading] 🛑 Mirroring is disabled, skipping execution.');
+            return;
+        }
+        if (this.follower_apis.size === 0) {
+            console.warn('[CopyTrading] 🛑 No authorized followers found, skipping execution.');
+            if (this.follower_tokens.length > 0) {
+                console.log('[CopyTrading] 🔄 Attempting to re-authorize followers...');
+                this.startMirroring(this.active_api);
+            }
+            return;
+        }
         
         const { amount, symbol, contract_type, duration, duration_unit, barrier, basis } = tradeData;
+        
+        // Validation
+        if (!symbol || !contract_type) {
+            console.error('[CopyTrading] ❌ Missing symbol or contract_type in signal:', tradeData);
+            return;
+        }
+
         const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
 
         this.follower_apis.forEach(async (api, token) => {
@@ -269,10 +293,10 @@ class CopyTradingLogic {
                     return;
                 }
 
-                console.log(`[CopyTrading] Attempting mirror on Follower ${token.substring(0,4)}: ${contract_type} ${symbol} @ ${adjusted_amount}`);
+                console.log(`[CopyTrading] 🚀 Mirroring trade to ${token.substring(0,4)}: ${contract_type} ${symbol} @ ${adjusted_amount}`);
 
                 // Step 1: Proposal
-                const proposal_req = {
+                const proposal_req: any = {
                     proposal: 1,
                     amount: adjusted_amount,
                     basis: basis || 'stake',
@@ -281,12 +305,21 @@ class CopyTradingLogic {
                     duration: Math.max(1, duration),
                     duration_unit: duration_unit,
                     symbol: symbol,
-                    barrier: barrier || undefined
                 };
+
+                // Only add barrier if it's a non-empty string/number
+                if (barrier !== undefined && barrier !== null && barrier !== '') {
+                    proposal_req.barrier = barrier;
+                }
 
                 const proposal_res = await this.executeWithReAuth(api, token, proposal_req);
                 if (proposal_res.error) {
-                    console.error(`[CopyTrading] Proposal failed for ${token.substring(0,4)}:`, proposal_res.error.message);
+                    console.error(`[CopyTrading] ❌ Proposal failed for ${token.substring(0,4)}:`, proposal_res.error.message, proposal_res.error.code);
+                    return;
+                }
+
+                if (!proposal_res.proposal?.id) {
+                    console.error(`[CopyTrading] ❌ Invalid proposal response for ${token.substring(0,4)}:`, proposal_res);
                     return;
                 }
 
@@ -300,12 +333,19 @@ class CopyTradingLogic {
 
                 const buy_res = await this.executeWithReAuth(api, token, buy_req);
                 if (buy_res.error) {
-                    console.error(`[CopyTrading] Buy failed for ${token.substring(0,4)}:`, buy_res.error.message);
+                    console.error(`[CopyTrading] ❌ Buy failed for ${token.substring(0,4)}:`, buy_res.error.message, buy_res.error.code);
                 } else {
                     console.log(`[CopyTrading] ✅ Mirror SUCCESS on Follower ${token.substring(0,4)} | Contract ID: ${buy_res.buy.contract_id}`);
+                    
+                    // Request balance update for this follower to confirm change
+                    api.send({ balance: 1 }).then((balRes: any) => {
+                        if (balRes.balance) {
+                            console.log(`[CopyTrading] 💰 New Balance for ${token.substring(0,4)}: ${balRes.balance.balance} ${balRes.balance.currency}`);
+                        }
+                    });
                 }
             } catch (e) {
-                console.error(`[CopyTrading] Execution exception for ${token.substring(0,4)}:`, e);
+                console.error(`[CopyTrading] 💥 Execution exception for ${token.substring(0,4)}:`, e);
             }
         });
     }

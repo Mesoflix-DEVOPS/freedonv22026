@@ -641,14 +641,20 @@ export default class RunPanelStore {
             data?.transaction_ids?.buy &&
             data?.buy_price &&
             data?.contract_id &&
-            data?.status === 'open';
+            (data?.status === 'open' || data?.status === 'purchased' || !data?.status);
 
         if (isBuyEvent) {
-            console.log('[Mirror] ✅ BUY detected, broadcasting to Mirror Network');
+            console.log('[Mirror] 📥 BUY event data:', {
+                contract_id: data.contract_id,
+                underlying: data.underlying,
+                buy_price: data.buy_price,
+                contract_type: data.contract_type,
+            });
+            console.log('[Mirror] ✅ Broadcasting to Mirror Network...');
             copy_trading_logic.broadcastTrade({
                 contract_id: data.contract_id,
                 amount: data.buy_price,
-                symbol: data.underlying,
+                symbol: data.underlying || data.symbol, // Fallback to data.symbol
                 contract_type: data.contract_type,
                 duration: data.tick_count ?? data.duration ?? 1,
                 duration_unit: data.duration_unit ?? 't',
