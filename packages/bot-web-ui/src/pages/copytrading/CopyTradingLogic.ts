@@ -114,23 +114,32 @@ class CopyTradingLogic {
     /**
      * UNIFIED START: Listen to the active account and mirror to the target token.
      */
-    async startMirroring(activeApi: DerivApi) {
+    async startMirroring(activeApi: any) {
         if (!this.target_token) return { error: { message: 'Target Token missing' } };
         
-        this.active_api = activeApi;
-        this.is_mirroring = true;
-
         try {
+            if (!activeApi) return { error: { message: 'Active connection not found' } };
+            
+            // Standard Deriv API check
+            const hasOnMessage = typeof activeApi.onMessage === 'function';
+            if (!hasOnMessage) {
+                return { error: { message: 'Active API initialized incorrectly' } };
+            }
+
+            this.active_api = activeApi;
+            this.is_mirroring = true;
+            
             // 1. Authorize Target API
             if (!this.target_api) {
-                this.target_api = generateDerivApiInstance() as DerivApi;
-                await this.target_api.authorize(this.target_token);
+                this.target_api = generateDerivApiInstance() as any;
+                await (this.target_api as any).authorize(this.target_token);
             }
 
             // 2. Subscribe to Active Account's trades
             this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
-                if (response.data.msg_type === 'proposal_open_contract') {
-                    const contract = response.data.proposal_open_contract;
+                const msg = response?.data || response; // Support both structures
+                if (msg.msg_type === 'proposal_open_contract') {
+                    const contract = msg.proposal_open_contract;
                     if (contract && contract.is_sold === 0 && contract.status === 'open') {
                         this.broadcastTrade({
                             contract_id: contract.contract_id,
@@ -152,8 +161,9 @@ class CopyTradingLogic {
             console.log('[CopyTrading] Unified Mirroring Active (Active -> Target)');
             return { success: true };
         } catch (err: any) {
+            console.error('[CopyTrading] Start failed:', err);
             this.is_mirroring = false;
-            return { error: err?.error || err };
+            return { error: { message: err?.error?.message || err?.message || 'Connection failed' } };
         }
     }
 
@@ -164,7 +174,7 @@ class CopyTradingLogic {
             this.unsubscribe_active = null;
         }
         if (this.target_api) {
-            this.target_api.disconnect();
+            (this.target_api as any).disconnect();
             this.target_api = null;
         }
         console.log('[CopyTrading] Unified Mirroring Stopped');
@@ -184,7 +194,7 @@ class CopyTradingLogic {
                     amount: adjusted_amount,
                     basis: basis || 'stake',
                     contract_type: contract_type,
-                    currency: (this.target_api.account_info?.currency || 'USD'),
+                    currency: (this.target_api as any).account_info?.currency || 'USD',
                     duration: duration,
                     duration_unit: duration_unit,
                     symbol: symbol,
@@ -192,7 +202,7 @@ class CopyTradingLogic {
                 }
             };
 
-            const res = await this.target_api.send(request);
+            const res = await (this.target_api as any).send(request);
             if (res.error) console.error('[CopyTrading] Target trade error:', res.error.message);
             else console.log('[CopyTrading] Mirror successful on target!');
         } catch (e) {
@@ -203,13 +213,12 @@ class CopyTradingLogic {
     async broadcastTrade(tradeData: TradeSignal) {
         if (!this.is_mirroring) return;
 
-        // Broadcast to Firestore for multi-browser/cross-platform visibility (optional but good for robustness)
         try {
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {
                 ...tradeData,
                 timestamp: serverTimestamp(),
-                master_account: (this.active_api?.account_info?.loginid || 'active_ui')
+                master_account: (this.active_api as any)?.account_info?.loginid || 'active_ui'
             });
             // Also handle locally immediately for lower latency
             this.handleSignal(tradeData);

@@ -3,6 +3,7 @@ import { FaCog, FaChartLine, FaShieldAlt } from 'react-icons/fa';
 import { useStore } from '@deriv/stores';
 import { copy_trading_logic } from './CopyTradingLogic';
 import { observer } from 'mobx-react-lite';
+import { api_base } from '@deriv/bot-skeleton/src/services/api/api-base';
 
 interface ClientStore {
     api: any;
@@ -129,7 +130,7 @@ const MirrorHub: React.FC = observer(() => {
             setToast({ type: 'ok', text: 'Mirroring Stopped' });
         } else {
             copy_trading_logic.setRiskSettings(maxStake, minStake);
-            const res = await copy_trading_logic.startMirroring(client.api);
+            const res = await copy_trading_logic.startMirroring(api_base.api);
             if (res.error) {
                 setToast({ type: 'err', text: `Failed: ${res.error.message || 'Check Token'}` });
             } else {
