@@ -122,14 +122,6 @@ class CopyTradingLogic {
         if (this.master_token) localStorage.setItem('deriv_master_token', this.master_token);
         else localStorage.removeItem('deriv_master_token');
     }
-Line 113:     private saveToStorage() {
-114:         localStorage.setItem('deriv_follower_tokens', JSON.stringify(this.follower_tokens));
-115:         localStorage.setItem('deriv_mirror_max_stake', this.max_stake.toString());
-116:         localStorage.setItem('deriv_mirror_min_stake', this.min_stake.toString());
-117:         localStorage.setItem('deriv_is_mirroring', this.is_mirroring.toString());
-118:         if (this.master_token) localStorage.setItem('deriv_master_token', this.master_token);
-119:         else localStorage.removeItem('deriv_master_token');
-120:     }
 
     /**
      * Authorized all followers in the background. 

@@ -212,7 +212,6 @@ const MirrorHub: React.FC = observer(() => {
         setIsUpdatingMaster(false);
     };
 
-    const handleToggleMirroring = async () => {
     const toggleNetwork = async () => {
         if (status.followers_count === 0) {
             setToast({ type: 'err', text: 'Auth at least one token first' });
