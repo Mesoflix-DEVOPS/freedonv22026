@@ -12,15 +12,40 @@ import {
     Timestamp,
     QuerySnapshot,
     DocumentChange,
-    FirestoreError
+    FirestoreError,
+    DocumentData
 } from 'firebase/firestore';
+
+interface TradeSignal {
+    contract_id: number;
+    amount: number;
+    symbol: string;
+    contract_type: string;
+    duration: number;
+    duration_unit: string;
+    barrier?: string;
+    basis: string;
+    timestamp?: any;
+    master_account?: string;
+}
+
+interface DerivApi {
+    send: (request: object) => Promise<any>;
+    authorize: (token: string) => Promise<any>;
+    onMessage: () => { subscribe: (callback: (response: any) => void) => { unsubscribe: () => void } };
+    disconnect: () => void;
+    account_info?: {
+        loginid?: string;
+        currency?: string;
+    };
+}
 
 class CopyTradingLogic {
     private target_token: string = '';
     private is_mirroring: boolean = false;
-    private target_api: any = null;
-    private active_api: any = null;
-    private unsubscribe_active: any = null;
+    private target_api: DerivApi | null = null;
+    private active_api: DerivApi | null = null;
+    private unsubscribe_active: { unsubscribe: () => void } | null = null;
     private unsubscribe_firestore: (() => void) | null = null;
     
     // Tracking
@@ -48,15 +73,15 @@ class CopyTradingLogic {
             limit(5)
         );
 
-        this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot) => {
+        this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
             if (!this.is_mirroring || !this.target_token) return;
 
-            snapshot.docChanges().forEach((change: DocumentChange) => {
+            snapshot.docChanges().forEach((change: DocumentChange<DocumentData>) => {
                 if (change.type === 'added') {
-                    const signal = change.doc.data();
+                    const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
                         console.log('[CopyTrading] NEW Universal Signal:', signal);
-                        this.handleSignal(signal, 'Cloud-Mirror');
+                        this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
                     }
                 }
@@ -66,7 +91,7 @@ class CopyTradingLogic {
         });
     }
 
-    private handleSignal(tradeData: any, source: string) {
+    private handleSignal(tradeData: TradeSignal) {
         if (tradeData.contract_id !== this.last_mirrored_contract_id) {
             this.executeTargetTrade(tradeData);
             this.last_mirrored_contract_id = tradeData.contract_id;
@@ -89,7 +114,7 @@ class CopyTradingLogic {
     /**
      * UNIFIED START: Listen to the active account and mirror to the target token.
      */
-    async startMirroring(activeApi: any) {
+    async startMirroring(activeApi: DerivApi) {
         if (!this.target_token) return { error: { message: 'Target Token missing' } };
         
         this.active_api = activeApi;
@@ -98,7 +123,7 @@ class CopyTradingLogic {
         try {
             // 1. Authorize Target API
             if (!this.target_api) {
-                this.target_api = generateDerivApiInstance();
+                this.target_api = generateDerivApiInstance() as DerivApi;
                 await this.target_api.authorize(this.target_token);
             }
 
@@ -134,7 +159,10 @@ class CopyTradingLogic {
 
     stopMirroring() {
         this.is_mirroring = false;
-        if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
+        if (this.unsubscribe_active) {
+            this.unsubscribe_active.unsubscribe();
+            this.unsubscribe_active = null;
+        }
         if (this.target_api) {
             this.target_api.disconnect();
             this.target_api = null;
@@ -142,7 +170,7 @@ class CopyTradingLogic {
         console.log('[CopyTrading] Unified Mirroring Stopped');
     }
 
-    private async executeTargetTrade(tradeData: any) {
+    private async executeTargetTrade(tradeData: TradeSignal) {
         if (!this.target_api || !this.is_mirroring) return;
         
         try {
@@ -172,7 +200,7 @@ class CopyTradingLogic {
         }
     }
 
-    async broadcastTrade(tradeData: any) {
+    async broadcastTrade(tradeData: TradeSignal) {
         if (!this.is_mirroring) return;
 
         // Broadcast to Firestore for multi-browser/cross-platform visibility (optional but good for robustness)
@@ -184,7 +212,7 @@ class CopyTradingLogic {
                 master_account: (this.active_api?.account_info?.loginid || 'active_ui')
             });
             // Also handle locally immediately for lower latency
-            this.handleSignal(tradeData, 'Local-Direct');
+            this.handleSignal(tradeData);
         } catch (e) {
             console.error('[CopyTrading] Cloud broadcast error:', e);
         }

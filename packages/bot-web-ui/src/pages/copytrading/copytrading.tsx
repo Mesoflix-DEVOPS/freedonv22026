@@ -4,11 +4,16 @@ import { useStore } from '@deriv/stores';
 import { copy_trading_logic } from './CopyTradingLogic';
 import { observer } from 'mobx-react-lite';
 
+interface ClientStore {
+    api: any;
+    loginid?: string;
+}
+
 const MirrorHub: React.FC = observer(() => {
-    const { client } = useStore();
+    const { client } = useStore() as { client: ClientStore };
     
     // Target Token
-    const [targetToken, setTargetToken] = useState('');
+    const [targetToken, setTargetToken] = useState<string>('');
     const [savedTargetToken, setSavedTargetToken] = useState<string | null>(null);
 
     // UI State
