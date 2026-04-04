@@ -43,14 +43,12 @@ const MirrorHub: React.FC = observer(() => {
                     from { transform: translateY(20px); opacity: 0; }
                     to   { transform: translateY(0);    opacity: 1; }
                 }
-                .mirror-card {
-                    background: #fff;
-                    border-radius: 28px;
-                    padding: 35px;
-                    box-shadow: 0 25px 50px rgba(0,0,0,0.06);
-                    animation: fadeInUp 0.5s ease-out;
-                    max-width: 900px;
-                    margin: 0 auto;
+                    padding: isMobile ? '20px' : '35px',
+                    boxShadow: '0 25px 50px rgba(0,0,0,0.06)',
+                    animation: 'fadeInUp 0.5s ease-out',
+                    max_width: '900px',
+                    margin: '0 auto',
+                    overflow: 'visible'
                 }
                 .follower-item {
                     display: flex;
@@ -197,11 +195,11 @@ const MirrorHub: React.FC = observer(() => {
             </div>
 
             {/* Main Dashboard UI */}
-            <div className="mirror-card">
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '50px' }}>
+            <div className="mirror-card" style={{ marginBottom: '40px' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '30px' : '50px' }}>
                     
                     {/* Left side: Follower List & Controls */}
-                    <div>
+                    <div style={{ flex: isMobile ? 'none' : '1.2' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
                             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Follower Network</h2>
                             <div style={{ 
@@ -265,7 +263,13 @@ const MirrorHub: React.FC = observer(() => {
                     </div>
 
                     {/* Right side: Global Settings & Activation */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                    <div style={{ 
+                        flex: isMobile ? 'none' : '0.8',
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '30px',
+                        order: isMobile ? -1 : 0 // Show settings/activation first on mobile
+                    }}>
                         
                         <div style={{ padding: '30px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
                             <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>

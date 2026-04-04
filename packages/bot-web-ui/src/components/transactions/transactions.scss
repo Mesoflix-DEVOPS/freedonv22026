@@ -83,10 +83,11 @@
         }
     }
     &__content {
-        height: calc(100% - 11rem);
+        flex: 1;
+        overflow: hidden;
 
         &--mobile {
-            height: calc(100% - 4.2rem);
+            @extend .transactions__content;
         }
     }
     &__scrollbar {

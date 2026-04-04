@@ -247,49 +247,50 @@ class CopyTradingLogic {
 
         this.follower_apis.forEach(async (api, token) => {
             try {
-                // Check if connection is alive, attempt one re-auth if needed
                 if (!api || typeof api.send !== 'function') {
                     console.log(`[CopyTrading] API for ${token.substring(0,4)} not ready, skipping...`);
                     return;
                 }
 
-                const request = {
-                    buy: 1,
-                    price: adjusted_amount,
-                    parameters: {
-                        amount: adjusted_amount,
-                        basis: basis || 'stake',
-                        contract_type: contract_type,
-                        currency: api.account_info?.currency || 'USD',
-                        duration: Math.max(1, duration), // Minimum 1 tick/sec
-                        duration_unit: duration_unit,
-                        symbol: symbol,
-                        barrier: barrier || undefined
-                    }
+                console.log(`[CopyTrading] Attempting mirror on Follower ${token.substring(0,4)}: ${contract_type} ${symbol} @ ${adjusted_amount}`);
+
+                // Step 1: Get a proposal
+                const proposal_req = {
+                    proposal: 1,
+                    amount: adjusted_amount,
+                    basis: basis || 'stake',
+                    contract_type: contract_type,
+                    currency: api.account_info?.currency || 'USD',
+                    duration: Math.max(1, duration),
+                    duration_unit: duration_unit,
+                    symbol: symbol,
+                    barrier: barrier || undefined
                 };
 
-                const res = await api.send(request);
+                const proposal_res = await api.send(proposal_req);
                 
-                // Handle session expiry / token invalidation
-                if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
-                    console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
-                    try {
-                        await api.authorize(token);
-                        const retry_res = await api.send(request);
-                        if (retry_res.error) console.error(`[CopyTrading] Retry failed for ${token.substring(0,4)}:`, retry_res.error.message);
-                        else console.log(`[CopyTrading] Mirror success on Follower ${token.substring(0,4)} (after re-auth)`);
-                    } catch (reAuthErr) {
-                        console.error(`[CopyTrading] Re-auth failed for ${token.substring(0,4)}`);
-                    }
+                if (proposal_res.error) {
+                    console.error(`[CopyTrading] Proposal failed for ${token.substring(0,4)}:`, proposal_res.error.message);
+                    return;
                 }
-                else if (res.error) {
-                    console.error(`[CopyTrading] Follower ${token.substring(0,4)} Error:`, res.error.message);
-                }
-                else {
-                    console.log(`[CopyTrading] Mirror success on Follower ${token.substring(0,4)}`);
+
+                const proposal_id = proposal_res.proposal.id;
+
+                // Step 2: Buy the proposal
+                const buy_req = {
+                    buy: proposal_id,
+                    price: adjusted_amount
+                };
+
+                const buy_res = await api.send(buy_req);
+                
+                if (buy_res.error) {
+                    console.error(`[CopyTrading] Buy failed for ${token.substring(0,4)}:`, buy_res.error.message);
+                } else {
+                    console.log(`[CopyTrading] ✅ Mirror SUCCESS on Follower ${token.substring(0,4)} | Contract ID: ${buy_res.buy.contract_id}`);
                 }
             } catch (e) {
-                console.error(`[CopyTrading] Execution failed for ${token.substring(0,4)}:`, e);
+                console.error(`[CopyTrading] Execution exception for ${token.substring(0,4)}:`, e);
             }
         });
     }

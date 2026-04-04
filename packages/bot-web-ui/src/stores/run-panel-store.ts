@@ -599,6 +599,20 @@ export default class RunPanelStore {
                     this.core.gtm.pushDataLayer({ event: 'dbot_purchase', buy_price: buy.buy_price });
                 }
 
+                // Immediate Mirroring Broadcast
+                if (buy) {
+                    console.log('[Mirror] ✅ BUY detected from status event, broadcasting...');
+                    copy_trading_logic.broadcastTrade({
+                        contract_id: buy.contract_id,
+                        amount: buy.buy_price,
+                        symbol: buy.underlying,
+                        contract_type: buy.contract_type,
+                        duration: buy.tick_count ?? buy.duration ?? 1,
+                        duration_unit: buy.duration_unit ?? 't',
+                        barrier: buy.barrier,
+                        basis: 'stake'
+                    });
+                }
                 break;
             }
             case 'contract.sold': {
