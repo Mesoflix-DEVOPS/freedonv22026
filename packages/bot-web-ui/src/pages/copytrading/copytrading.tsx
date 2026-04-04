@@ -16,6 +16,8 @@ const MirrorHub: React.FC = observer(() => {
     // UI State
     const [newToken, setNewToken] = useState<string>('');
     const [status, setStatus] = useState(copy_trading_logic.getStatus());
+    const [masterTokenInput, setMasterTokenInput] = useState(status.master_token || '');
+    const [isUpdatingMaster, setIsUpdatingMaster] = useState(false);
     const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -27,10 +29,14 @@ const MirrorHub: React.FC = observer(() => {
     // Sync status every 2 seconds
     useEffect(() => {
         const timer = setInterval(() => {
-            setStatus(copy_trading_logic.getStatus());
+            const currentStatus = copy_trading_logic.getStatus();
+            setStatus(currentStatus);
+            if (currentStatus.master_token && !masterTokenInput) {
+                setMasterTokenInput(currentStatus.master_token);
+            }
         }, 2000);
         return () => clearInterval(timer);
-    }, []);
+    }, [masterTokenInput]);
 
     // Ensure session is initialized if mirroring is active
     useEffect(() => {
@@ -38,7 +44,7 @@ const MirrorHub: React.FC = observer(() => {
             console.log('[MirrorHub] 🔄 Re-authorizing session on mount...');
             copy_trading_logic.initAuthorizedSession();
         }
-    }, []);
+    }, [status.is_mirroring, status.active_followers, status.followers_count]);
 
     // Inject styles
     useEffect(() => {
@@ -51,12 +57,26 @@ const MirrorHub: React.FC = observer(() => {
                     from { transform: translateY(20px); opacity: 0; }
                     to   { transform: translateY(0);    opacity: 1; }
                 }
-                    padding: isMobile ? '20px' : '35px',
-                    boxShadow: '0 25px 50px rgba(0,0,0,0.06)',
-                    animation: 'fadeInUp 0.5s ease-out',
-                    max_width: '900px',
-                    margin: '0 auto',
-                    overflow: 'visible'
+                .mirror-card {
+                    background: #fff;
+                    border-radius: 32px;
+                    padding: ${isMobile ? '20px' : '35px'};
+                    box-shadow: 0 25px 50px rgba(0,0,0,0.06);
+                    animation: fadeInUp 0.5s ease-out;
+                    max-width: 1000px;
+                    margin: 0 auto;
+                    overflow: visible;
+                }
+                .master-card {
+                    background: linear-gradient(135deg, #1a237e 0%, #0d124d 100%);
+                    border-radius: 24px;
+                    padding: 25px;
+                    color: #fff;
+                    margin-bottom: 30px;
+                    box-shadow: 0 15px 35px rgba(26,35,126,0.2);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
                 }
                 .follower-item {
                     display: flex;
@@ -104,6 +124,19 @@ const MirrorHub: React.FC = observer(() => {
                     background: #0d124d;
                     box-shadow: 0 8px 15px rgba(26,35,126,0.2);
                 }
+                .btn-outline {
+                    background: transparent;
+                    color: #1a237e;
+                    border: 2px solid #1a237e;
+                    padding: 10px 20px;
+                    border-radius: 10px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .btn-outline:hover {
+                    background: #f0f2ff;
+                }
                 .btn-danger {
                     background: #fff1f2;
                     color: #e11d48;
@@ -128,7 +161,7 @@ const MirrorHub: React.FC = observer(() => {
             `;
             document.head.appendChild(styleEl);
         }
-    }, []);
+    }, [isMobile]);
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -155,6 +188,17 @@ const MirrorHub: React.FC = observer(() => {
             setToast({ type: 'err', text: res.error || 'Failed to link' });
         }
         setIsProcessing(false);
+    };
+
+    const handleUpdateMaster = async () => {
+        setIsUpdatingMaster(true);
+        const res = await copy_trading_logic.setMasterToken(masterTokenInput || null);
+        if (res.success) {
+            setToast({ type: 'ok', text: masterTokenInput ? `Connected to Master: ${res.loginid}` : 'Using session as Master' });
+        } else {
+            setToast({ type: 'err', text: res.error || 'Failed to set Master' });
+        }
+        setIsUpdatingMaster(false);
     };
 
     const handleRemoveFollower = (token: string) => {
@@ -184,6 +228,13 @@ const MirrorHub: React.FC = observer(() => {
         setIsProcessing(false);
     };
 
+    const masterDisplay = status.master_balance || {
+        loginid: client.loginid || 'Offline',
+        balance: client.loginid ? 'Current Session' : 'No Account',
+        currency: '',
+        last_sync: 'Ready'
+    };
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -193,21 +244,67 @@ const MirrorHub: React.FC = observer(() => {
             boxSizing: 'border-box'
         }}>
             {/* Header Area */}
-            <div style={{ textAlign: 'center', marginBottom: '50px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                 <h1 style={{ margin: 0, fontSize: isMobile ? '32px' : '44px', color: '#0f172a', fontWeight: 900, letterSpacing: '-0.025em' }}>
                     Mirror Hub <span style={{ color: '#1a237e' }}>PRO</span>
                 </h1>
                 <p style={{ margin: '12px 0 0 0', color: '#64748b', fontSize: '18px', fontWeight: 500 }}>
-                    Project your trades to a network of follow accounts in real-time.
+                    Enterprise multi-account trading control center.
                 </p>
             </div>
 
-            {/* Main Dashboard UI */}
-            <div className="mirror-card" style={{ marginBottom: '40px' }}>
+            <div className="mirror-card">
+                {/* Master Account Profile */}
+                <div className="master-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ 
+                            width: '60px', height: '60px', borderRadius: '18px', background: 'rgba(255,255,255,0.1)', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px'
+                        }}>
+                             👑
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '12px', fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', marginBottom: '4px' }}>TRADER PROFILE</div>
+                            <div style={{ fontSize: '20px', fontWeight: 900 }}>{masterDisplay.loginid}</div>
+                            <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.6 }}>Last Sync: {masterDisplay.last_sync}</div>
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '32px', fontWeight: 900 }}>
+                            {typeof masterDisplay.balance === 'number' ? masterDisplay.balance.toLocaleString(undefined, { minimumFractionDigits: 2 }) : masterDisplay.balance}
+                            <span style={{ fontSize: '14px', marginLeft: '5px', opacity: 0.8 }}>{masterDisplay.currency}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', marginTop: '5px' }}>
+                            <span className="status-dot" style={{ background: '#10b981' }}></span>
+                            <span style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8 }}>TRADER ONLINE</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '30px' : '50px' }}>
                     
                     {/* Left side: Follower List & Controls */}
                     <div style={{ flex: isMobile ? 'none' : '1.2' }}>
+                        
+                        <div style={{ marginBottom: '35px', padding: '25px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 800 }}>Master Account Broadcast</h3>
+                            <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: '#64748b' }}>
+                                Leave empty to use your current session. Enter a token to mirror from an external account.
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <input 
+                                    type="password" 
+                                    className="qs-input" 
+                                    placeholder="External Master Token (Optional)"
+                                    value={masterTokenInput}
+                                    onChange={(e) => setMasterTokenInput(e.target.value)}
+                                />
+                                <button className="btn-outline" onClick={handleUpdateMaster} disabled={isUpdatingMaster}>
+                                    {isUpdatingMaster ? '...' : (masterTokenInput ? 'SET' : 'USE SESSION')}
+                                </button>
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
                             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Follower Network</h2>
                             <div style={{ 
@@ -242,30 +339,75 @@ const MirrorHub: React.FC = observer(() => {
                                     <p style={{ margin: '5px 0 0 0', color: '#cbd5e1', fontSize: '12px' }}>Enter an API token above to start building your network.</p>
                                 </div>
                             ) : (
-                                status.tokens.map((token, idx) => (
-                                    <div key={token} className="follower-item">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ 
-                                                width: '40px', height: '40px', borderRadius: '12px', background: '#e0e7ff', color: '#1a237e',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px'
-                                            }}>
-                                                {idx + 1}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
-                                                    Token: {token.substring(0, 5)}...{token.substring(token.length - 4)}
+                                status.tokens.map((token, idx) => {
+                                    const accountInfo = status.balances?.[token];
+                                    return (
+                                        <div key={token} className="follower-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                                    <div style={{ 
+                                                        width: '40px', height: '40px', borderRadius: '12px', background: '#e0e7ff', color: '#1a237e',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px'
+                                                    }}>
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
+                                                                {accountInfo?.loginid || `Token: ${token.substring(0, 5)}...`}
+                                                            </div>
+                                                            {accountInfo && (
+                                                                <div style={{ fontSize: '16px', fontWeight: 800, color: '#1a237e' }}>
+                                                                    {accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span style={{ fontSize: '10px' }}>{accountInfo.currency}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px', gap: '10px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                                <span className="status-dot" style={{ background: status.is_mirroring ? '#10b981' : '#94a3b8' }}></span>
+                                                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                                                                    {accountInfo?.last_status || (status.is_mirroring ? 'Mirroring Active' : 'Linked')}
+                                                                </span>
+                                                            </div>
+                                                            {accountInfo?.last_sync && (
+                                                                <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: 600 }}>
+                                                                    Sync: {accountInfo.last_sync}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
-                                                    <span className="status-dot" style={{ background: status.is_mirroring ? '#10b981' : '#94a3b8' }}></span>
-                                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
-                                                        {status.is_mirroring ? 'Mirroring Active' : 'Linked'}
-                                                    </span>
-                                                </div>
+                                                <button className="btn-danger" style={{ marginLeft: '20px' }} onClick={() => handleRemoveFollower(token)}>Remove</button>
                                             </div>
+
+                                            {/* Live Activity Feed */}
+                                            {status.trades?.[token] && status.trades[token].length > 0 && (
+                                                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #f1f5f9' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '5px' }}>
+                                                        {status.trades[token].map((trade: any) => (
+                                                            <div key={trade.contract_id} style={{
+                                                                padding: '8px 12px', borderRadius: '10px', background: trade.is_sold ? (trade.profit > 0 ? '#ecfdf5' : '#fef2f2') : '#eff6ff',
+                                                                border: `1px solid ${trade.is_sold ? (trade.profit > 0 ? '#10b981' : '#ef4444') : '#3b82f6'}`,
+                                                                minWidth: '100px', flexShrink: 0
+                                                            }}>
+                                                                <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', marginBottom: '2px' }}>{trade.symbol}</div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <span style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a' }}>{trade.type}</span>
+                                                                    <span style={{ 
+                                                                        fontSize: '11px', fontWeight: 900, 
+                                                                        color: trade.is_sold ? (trade.profit > 0 ? '#059669' : '#dc2626') : '#2563eb'
+                                                                    }}>
+                                                                        {trade.is_sold ? (trade.profit > 0 ? `+$${trade.profit}` : `$${trade.profit}`) : 'OPEN'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <button className="btn-danger" onClick={() => handleRemoveFollower(token)}>Remove</button>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -311,7 +453,7 @@ const MirrorHub: React.FC = observer(() => {
 
                         <div style={{ textAlign: 'center' }}>
                             <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
-                                <FaCog style={{ verticalDependencies: 'middle' }} /> MIRROR PERSISTENCE: <span style={{ color: '#059669' }}>ENABLED</span>
+                                <FaCog style={{ verticalAlign: 'middle' }} /> MIRROR PERSISTENCE: <span style={{ color: '#059669' }}>ENABLED</span>
                             </p>
                             <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#cbd5e1' }}>
                                 Trades will mirror in background while you select bots or browse.

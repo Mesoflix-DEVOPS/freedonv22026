@@ -111,18 +111,42 @@ export const StatisticsSummary = ({
     </div>
 );
 
-const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onClearStatClick }: TDrawerHeader) =>
-    is_mobile &&
-    is_drawer_open && (
-        <Button
-            id='db-run-panel__clear-button'
-            className='run-panel__clear-button'
-            is_disabled={is_clear_stat_disabled}
-            text={localize('Reset')}
-            onClick={onClearStatClick}
-            secondary
-        />
+const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onClearStatClick }: TDrawerHeader) => {
+    const [isMirroring, setIsMirroring] = React.useState(false);
+    
+    React.useEffect(() => {
+        const timer = setInterval(() => {
+            setIsMirroring(copy_trading_logic.getStatus().is_mirroring);
+        }, 2000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 16px' }}>
+            {isMirroring && (
+                <div style={{ 
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', 
+                    background: '#ecfdf5', border: '1px solid #10b981', borderRadius: '4px' 
+                }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></div>
+                    <Text size='xxs' weight='bold' color='prominent' style={{ color: '#059669', fontSize: '10px' }}>
+                        MIRROR ACTIVE
+                    </Text>
+                </div>
+            )}
+            {is_mobile && is_drawer_open && (
+                <Button
+                    id='db-run-panel__clear-button'
+                    className='run-panel__clear-button'
+                    is_disabled={is_clear_stat_disabled}
+                    text={localize('Reset')}
+                    onClick={onClearStatClick}
+                    secondary
+                />
+            )}
+        </div>
     );
+};
 
 const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: any) => {
     return (
