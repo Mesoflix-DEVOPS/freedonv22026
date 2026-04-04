@@ -104,7 +104,16 @@ class CopyTradingLogic {
             if (savedMax) this.max_stake = Number(savedMax);
             if (savedMin) this.min_stake = Number(savedMin);
             if (savedSync) this.is_sync_active = savedSync === 'true';
-            if (savedPaused) this.paused_tokens = new Set(JSON.parse(savedPaused));
+            if (savedPaused) {
+                try {
+                    const parsed = JSON.parse(savedPaused);
+                    if (Array.isArray(parsed)) {
+                        this.paused_tokens = new Set(parsed);
+                    }
+                } catch (e) {
+                    console.error('[NetworkSync] Failed to parse paused_tokens', e);
+                }
+            }
             
             const savedMaster = localStorage.getItem('deriv_master_token');
             if (savedMaster) this.master_token = savedMaster;
@@ -202,7 +211,7 @@ class CopyTradingLogic {
         );
 
         this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-            if (!this.is_mirroring || this.follower_tokens.length === 0) return;
+            if (!this.is_sync_active || this.follower_tokens.length === 0) return;
 
             snapshot.docChanges().forEach((change: DocumentChange<DocumentData>) => {
                 if (change.type === 'added') {
@@ -377,7 +386,7 @@ class CopyTradingLogic {
     private startBalanceLoop() {
         if (this.balance_timer) clearInterval(this.balance_timer);
         this.balance_timer = setInterval(() => {
-            if (this.is_mirroring && this.follower_apis.size > 0) {
+            if (this.is_sync_active && this.follower_apis.size > 0) {
                 this.refreshBalances();
             }
         }, 10000); // 10 seconds
@@ -407,7 +416,7 @@ class CopyTradingLogic {
                         balance: balRes.balance.balance,
                         currency: balRes.balance.currency,
                         loginid: api.account_info?.loginid || this.follower_balances.get(token)?.loginid || '???',
-                        last_status: this.is_mirroring ? 'Mirroring' : 'Connected',
+                        last_status: this.is_sync_active ? 'Mirroring' : 'Connected',
                         last_sync: new Date().toLocaleTimeString()
                     });
                 }
@@ -467,7 +476,7 @@ class CopyTradingLogic {
     }
 
     private async executeTargetTrades(tradeData: TradeSignal) {
-        if (!this.is_mirroring) {
+        if (!this.is_sync_active) {
             console.warn('[CopyTrading] Mirroring is disabled, skipping execution.');
             return;
         }

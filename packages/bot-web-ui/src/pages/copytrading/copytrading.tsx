@@ -18,7 +18,7 @@ const MirrorHub: React.FC = observer(() => {
     const [status, setStatus] = useState(copy_trading_logic.getStatus());
     const [masterTokenInput, setMasterTokenInput] = useState(status.master_token || '');
     const [isUpdatingMaster, setIsUpdatingMaster] = useState(false);
-    const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+    const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -397,7 +397,9 @@ const MirrorHub: React.FC = observer(() => {
                                                 <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '12px' }}>
                                                     <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Balance</div>
                                                     <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-                                                        {bal ? `${bal.balance.toLocaleString()} ${bal.currency}` : '---'}
+                                                        {bal?.balance !== undefined && bal?.balance !== null ? 
+                                                            `${Number(bal.balance).toLocaleString()} ${bal.currency || ''}` : 
+                                                            '---'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -515,14 +517,14 @@ const MirrorHub: React.FC = observer(() => {
                 <div style={{
                     position: 'fixed', bottom: '30px', left: isMobile ? '10px' : '50%', right: isMobile ? '10px' : 'auto',
                     transform: isMobile ? 'none' : 'translateX(-50%)',
-                    background: toast.type === 'ok' ? '#0f172a' : '#ef4444', color: '#fff',
+                    background: (toast.type === 'success' || toast.type === 'info') ? '#0f172a' : '#ef4444', color: '#fff',
                     padding: '16px 28px', borderRadius: '14px', fontWeight: 800, 
                     boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
                     display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10000,
                     animation: 'fadeInUp 0.3s ease',
                     fontSize: '14px'
                 }}>
-                    <span>{toast.type === 'ok' ? '✅' : '❌'}</span>
+                    <span>{(toast.type === 'success' || toast.type === 'info') ? '✅' : '❌'}</span>
                     {toast.text}
                 </div>
             )}
