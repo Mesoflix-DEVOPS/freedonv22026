@@ -369,8 +369,8 @@ const MirrorHub: React.FC = observer(() => {
                                             {status.trades?.[token] && status.trades[token].length > 0 && (
                                                 <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
                                                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                                        {status.trades[token].map((trade: any) => (
-                                                            <div key={trade.contract_id} style={{
+                                                        {status.trades[token].map((trade: any, tIdx: number) => (
+                                                            <div key={`${token}-${trade.contract_id}-${tIdx}`} style={{
                                                                 padding: '6px 10px', borderRadius: '8px', 
                                                                 background: trade.is_sold ? (trade.profit > 0 ? '#f0fdf4' : '#fef2f2') : '#f8fafc',
                                                                 border: `1px solid ${trade.is_sold ? (trade.profit > 0 ? '#dcfce7' : '#fee2e2') : '#e2e8f0'}`,
@@ -440,6 +440,26 @@ const MirrorHub: React.FC = observer(() => {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Live Engine Trace Console */}
+            <div style={{ 
+                maxWidth: '1100px', margin: '20px auto 0 auto', width: '100%',
+                background: '#0f172a', borderRadius: '16px', padding: '15px', color: '#94a3b8',
+                fontFamily: 'monospace', fontSize: '11px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ color: '#fff', fontWeight: 800, marginBottom: '10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    📡 Engine Heartbeat
+                </div>
+                {!status.is_mirroring ? (
+                    <div style={{ fontStyle: 'italic', color: '#475569' }}>Engine Offline</div>
+                ) : status.trace && status.trace.length > 0 ? (
+                    status.trace.map((t: string, i: number) => (
+                        <div key={`trace-${i}`} style={{ marginBottom: '4px', opacity: 1 - (i * 0.15) }}>{t}</div>
+                    ))
+                ) : (
+                    <div style={{ fontStyle: 'italic' }}>Waiting for signals...</div>
+                )}
             </div>
 
             {/* Toast System */}

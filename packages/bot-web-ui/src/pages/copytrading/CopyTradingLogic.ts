@@ -66,6 +66,7 @@ class CopyTradingLogic {
     private is_mirroring: boolean = false;
     private active_api: any = null;
     private unsubscribe_active: any = null;
+    private engine_trace: string[] = [];
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -328,20 +329,30 @@ class CopyTradingLogic {
                 
                 this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
                     const msg = response?.data || response;
+                    
+                    // Catch both Purchase and Open Contract events for maximum reliability
+                    if (msg.msg_type === 'buy') {
+                        console.log('[CopyTrading] 🛒 Master Purchase detected:', msg.buy.contract_id);
+                    }
+
                     if (msg.msg_type === 'proposal_open_contract') {
                         const contract = msg.proposal_open_contract;
                         if (contract && contract.is_sold === 0 && contract.status === 'open') {
-                            this.broadcastTrade({
-                                contract_id: contract.contract_id,
-                                amount: contract.buy_price,
-                                symbol: contract.underlying,
-                                contract_type: contract.contract_type,
-                                duration: contract.duration || (contract.date_expiry - contract.date_start),
-                                duration_unit: contract.duration_unit || 's',
-                                barrier: contract.barrier,
-                                barrier2: contract.barrier2,
-                                basis: 'stake'
-                            });
+                            const isNew = this.last_mirrored_contract_id !== contract.contract_id;
+                            if (isNew) {
+                                console.log(`[CopyTrading] 📢 Broadcasting Master Trade: ${contract.contract_type} on ${contract.underlying}`);
+                                this.broadcastTrade({
+                                    contract_id: contract.contract_id,
+                                    amount: contract.buy_price || contract.amount,
+                                    symbol: contract.underlying,
+                                    contract_type: contract.contract_type,
+                                    duration: contract.duration || (contract.date_expiry - (contract.date_start || Math.floor(Date.now()/1000))),
+                                    duration_unit: contract.duration_unit || 's',
+                                    barrier: contract.barrier,
+                                    barrier2: contract.barrier2,
+                                    basis: 'stake'
+                                });
+                            }
                         }
                     }
                 });
@@ -463,12 +474,18 @@ class CopyTradingLogic {
         }
 
         const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
+        
+        console.log(`[CopyTrading] ⚡ Executing mirror for ${this.follower_apis.size} followers...`);
 
         this.follower_apis.forEach(async (api, token) => {
             try {
                 if (!api || typeof api.send !== 'function') return;
 
-                console.log(`[CopyTrading] 🚀 Mirroring to ${token.substring(0,4)}: ${contract_type} ${symbol} | Dur: ${duration}${duration_unit}`);
+                const traceMsg = `Mirroring ${contract_type} ${symbol} (${duration}${duration_unit}) to ...${token.slice(-4)}`;
+                this.addTrace(traceMsg);
+                
+                const existing = this.follower_balances.get(token);
+                if (existing) this.follower_balances.set(token, { ...existing, last_status: `Engine: ${contract_type}...` });
 
                 const proposal_req: any = {
                     proposal: 1,
@@ -476,7 +493,7 @@ class CopyTradingLogic {
                     basis: basis || 'stake',
                     contract_type,
                     currency: api.account_info?.currency || 'USD',
-                    duration: Math.max(1, duration),
+                    duration: Math.max(1, Number(duration)),
                     duration_unit,
                     symbol,
                 };
@@ -492,8 +509,9 @@ class CopyTradingLogic {
                 if (proposal_res.error) {
                     const err_msg = proposal_res.error.message || 'Proposal failed';
                     console.error(`[CopyTrading] ❌ Proposal failed (${token.substring(0,4)}): ${err_msg}`);
-                    const existing = this.follower_balances.get(token);
-                    if (existing) this.follower_balances.set(token, { ...existing, last_status: `Err: ${err_msg.substring(0, 20)}` });
+                    this.addTrace(`Error (...${token.slice(-4)}): ${err_msg}`);
+                    const activeBal = this.follower_balances.get(token);
+                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: `Err: ${err_msg.substring(0, 15)}` });
                     return;
                 }
 
@@ -503,16 +521,17 @@ class CopyTradingLogic {
                 if (buy_res.error) {
                     const err_msg = buy_res.error.message || 'Buy failed';
                     console.error(`[CopyTrading] ❌ Buy failed (${token.substring(0,4)}): ${err_msg}`);
-                    const existing = this.follower_balances.get(token);
-                    if (existing) this.follower_balances.set(token, { ...existing, last_status: `Err: ${err_msg.substring(0, 20)}` });
+                    this.addTrace(`Buy failed (...${token.slice(-4)})`);
+                    const activeBal = this.follower_balances.get(token);
+                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: `Err: ${err_msg.substring(0, 15)}` });
                 } else {
                     this.last_trade_time = new Date().toLocaleTimeString();
-                    console.log(`[CopyTrading] ✅ Mirror SUCCESS (${token.substring(0,4)}) | CID: ${buy_res.buy.contract_id}`);
+                    this.addTrace(`Success 🏆 (...${token.slice(-4)})`);
                     
-                    const existing = this.follower_balances.get(token);
-                    if (existing) this.follower_balances.set(token, { ...existing, last_status: 'Trade Executed' });
+                    const activeBal = this.follower_balances.get(token);
+                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: 'Trade Executed' });
                     
-                    // Immediate balance update after trade
+                    // Immediate balance update
                     setTimeout(() => {
                         api.send({ balance: 1 }).then((balRes: any) => {
                             if (balRes.balance) {
@@ -520,13 +539,12 @@ class CopyTradingLogic {
                                     balance: balRes.balance.balance,
                                     currency: balRes.balance.currency,
                                     loginid: api.account_info?.loginid || '???',
-                                    last_status: 'Balance Updated',
+                                    last_status: 'Balance Sync',
                                     last_sync: new Date().toLocaleTimeString()
                                  });
-                                 console.log(`[CopyTrading] 💰 Balance Updated (${token.substring(0,4)}): ${balRes.balance.balance}`);
                             }
                         });
-                    }, 2000); // 2s delay for server to update
+                    }, 3000);
                 }
             } catch (e) {
                 console.error(`[CopyTrading] 💥 Execution exception for ${token.substring(0,4)}:`, e);
@@ -580,6 +598,13 @@ class CopyTradingLogic {
         }
 
         this.follower_trades.set(token, trades);
+        
+        // Update status to show latest activity
+        const latest = this.follower_balances.get(token);
+        if (latest) {
+            let statusText = data.is_sold ? (data.profit > 0 ? 'Won' : 'Lost') : 'Active Trade';
+            this.follower_balances.set(token, { ...latest, last_status: statusText });
+        }
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
@@ -602,6 +627,11 @@ class CopyTradingLogic {
         }
     }
 
+    private addTrace(msg: string) {
+        const time = new Date().toLocaleTimeString();
+        this.engine_trace = [`[${time}] ${msg}`, ...this.engine_trace.slice(0, 4)];
+    }
+
     getStatus() {
         return {
             is_mirroring: this.is_mirroring,
@@ -614,7 +644,8 @@ class CopyTradingLogic {
             master_token: this.master_token,
             max_stake: this.max_stake,
             min_stake: this.min_stake,
-            last_trade_time: this.last_trade_time
+            last_trade_time: this.last_trade_time,
+            trace: this.engine_trace
         };
     }
 }
