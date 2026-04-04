@@ -9,6 +9,7 @@ import Cards from './cards';
 import InfoPanel from './info-panel';
 import Announcements from './announcements/announcements';
 import WithdrawalToaster from './withdrawal-toaster';
+import './dashboard-cards.scss';
 import SocialMediaBar from './social-media-bar';
 
 type TMobileIconGuide = {

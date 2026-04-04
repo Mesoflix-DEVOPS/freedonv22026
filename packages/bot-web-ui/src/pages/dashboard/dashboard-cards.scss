@@ -127,38 +127,58 @@
     }
 
     &--golden {
-        background: rgba(218, 165, 32, 0.08);
-        /* Dark subtle gold */
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(218, 165, 32, 0.3);
-        box-shadow: 0 4px 12px rgba(218, 165, 32, 0.1);
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(218, 165, 32, 0.1) 100%);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 2px solid rgba(218, 165, 32, 0.4);
+        box-shadow: 
+            0 4px 15px rgba(218, 165, 32, 0.15),
+            inset 0 0 20px rgba(218, 165, 32, 0.05);
 
         @media (prefers-color-scheme: dark) {
-            border-color: rgba(250, 204, 21, 0.4);
-            /* Brighter yellow/gold in dark mode */
-            box-shadow: 0 4px 16px rgba(250, 204, 21, 0.15);
+            background: linear-gradient(135deg, rgba(250, 204, 21, 0.1) 0%, rgba(161, 98, 7, 0.15) 100%);
+            border-color: rgba(250, 204, 21, 0.5);
+            box-shadow: 
+                0 6px 20px rgba(250, 204, 21, 0.2),
+                inset 0 0 25px rgba(250, 204, 21, 0.08);
         }
 
         &:hover {
-            border-color: rgba(250, 204, 21, 0.7);
-            box-shadow: 0 8px 24px rgba(250, 204, 21, 0.25);
-            transform: translateY(-4px);
+            transform: translateY(-6px);
+            border-color: rgba(250, 204, 21, 0.9);
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.12) 0%, rgba(218, 165, 32, 0.2) 100%);
+            box-shadow: 
+                0 12px 30px rgba(218, 165, 32, 0.4),
+                0 0 15px rgba(250, 204, 21, 0.3);
 
             @media (prefers-color-scheme: dark) {
-                border-color: rgba(250, 204, 21, 0.9);
-                box-shadow: 0 8px 24px rgba(250, 204, 21, 0.3);
+                border-color: #facc15;
+                box-shadow: 
+                    0 15px 40px rgba(250, 204, 21, 0.5),
+                    0 0 25px rgba(250, 204, 21, 0.4);
+            }
+
+            .dashboard-card__icon {
+                transform: scale(1.1) rotate(5deg);
+                background: rgba(218, 165, 32, 0.25);
             }
         }
 
         .dashboard-card__icon {
             background: rgba(218, 165, 32, 0.15);
-            filter: drop-shadow(0 0 6px rgba(218, 165, 32, 0.4));
+            border: 1px solid rgba(218, 165, 32, 0.3);
+            filter: drop-shadow(0 0 8px rgba(218, 165, 32, 0.3));
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-            .dc-icon,
             svg {
-                color: #eab308;
-                /* Tailwind yellow-500 */
+                color: #d97706; /* High-contrast gold */
+            }
+        }
+
+        .dashboard-card__title {
+            color: #b45309;
+            @media (prefers-color-scheme: dark) {
+                color: #fef08a; /* Soft gold for dark mode */
             }
         }
     }
