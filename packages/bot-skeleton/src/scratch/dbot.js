@@ -87,7 +87,12 @@ class DBot {
                             if (run_button) run_button.disabled = true;
 
                             that.interpreter.unsubscribeFromTicksService().then(async () => {
-                                await that.interpreter?.bot.tradeEngine.watchTicks(symbol);
+                                try {
+                                    await that.interpreter?.bot.tradeEngine.watchTicks(symbol);
+                                } catch (error) {
+                                    // eslint-disable-next-line no-console
+                                    console.error('[DBot] Failed to watch ticks after symbol change:', error);
+                                }
                             });
                         }
                     } else if (is_trade_type_cat_list_change && event.blockId === this.id) {
@@ -377,7 +382,12 @@ class DBot {
         this.is_bot_running = false;
         this.interpreter = null;
         this.interpreter = Interpreter();
-        await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+        try {
+            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[DBot] Failed to restart tick monitoring after stopBot:', error);
+        }
         forgetAccumulatorsProposalRequest(this);
     }
 
@@ -389,7 +399,12 @@ class DBot {
             await this.interpreter.terminateSession();
             this.interpreter = null;
             this.interpreter = Interpreter();
-            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+            try {
+                await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('[DBot] Failed to restart tick monitoring after terminateBot:', error);
+            }
         }
     }
 

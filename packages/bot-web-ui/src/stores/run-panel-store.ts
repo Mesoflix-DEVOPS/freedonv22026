@@ -249,39 +249,44 @@ export default class RunPanelStore {
         }
     };
 
-    stopBot = () => {
+    stopBot = async () => {
         const { ui } = this.core;
 
-        this.dbot.stopBot();
+        try {
+            await this.dbot.stopBot();
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[RunPanelStore] Error stopping bot:', error);
+        } finally {
+            ui.setPromptHandler(false);
 
-        ui.setPromptHandler(false);
+            if (this.error_type) {
+                // when user click stop button when there is a error but bot is retrying
+                this.setContractStage(contract_stages.NOT_RUNNING);
+                ui.setAccountSwitcherDisabledMessage();
+                this.setIsRunning(false);
+            } else if (this.has_open_contract) {
+                // when user click stop button when bot is running
+                this.setContractStage(contract_stages.IS_STOPPING);
+            } else {
+                // when user click stop button before bot start running
+                this.setContractStage(contract_stages.NOT_RUNNING);
+                this.unregisterBotListeners();
+                ui.setAccountSwitcherDisabledMessage();
+                this.setIsRunning(false);
+            }
 
-        if (this.error_type) {
-            // when user click stop button when there is a error but bot is retrying
-            this.setContractStage(contract_stages.NOT_RUNNING);
-            ui.setAccountSwitcherDisabledMessage();
-            this.setIsRunning(false);
-        } else if (this.has_open_contract) {
-            // when user click stop button when bot is running
-            this.setContractStage(contract_stages.IS_STOPPING);
-        } else {
-            // when user click stop button before bot start running
-            this.setContractStage(contract_stages.NOT_RUNNING);
-            this.unregisterBotListeners();
-            ui.setAccountSwitcherDisabledMessage();
-            this.setIsRunning(false);
-        }
+            if (this.error_type) {
+                this.error_type = undefined;
+            }
 
-        if (this.error_type) {
-            this.error_type = undefined;
-        }
-
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
-        if (window.sendRequestsStatistic) {
-            window.sendRequestsStatistic(true);
-            performance.clearMeasures();
+            if (this.timer) {
+                clearInterval(this.timer);
+            }
+            if (window.sendRequestsStatistic) {
+                window.sendRequestsStatistic(true);
+                performance.clearMeasures();
+            }
         }
     };
 

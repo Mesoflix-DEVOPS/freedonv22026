@@ -241,7 +241,13 @@ export const recoverFromError = (promiseFn, recoverFn, errors_to_ignore, delay_i
                  * if bot is not running there is no point of recovering from error
                  * `!api_base.is_running` will check the bot status if it is not running it will kick out the control from loop
                  */
-                if (shouldThrowError(error, errors_to_ignore) || (api_base && !api_base.is_running)) {
+                if (shouldThrowError(error, errors_to_ignore)) {
+                    reject(error);
+                    return;
+                }
+
+                const is_ignorable = !shouldThrowError(error, errors_to_ignore);
+                if (api_base && !api_base.is_running && !is_ignorable) {
                     reject(error);
                     return;
                 }
