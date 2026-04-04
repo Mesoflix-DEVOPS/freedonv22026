@@ -11,6 +11,7 @@ import Transactions from 'Components/transactions';
 import { DBOT_TABS } from 'Constants/bot-contents';
 import { popover_zindex } from 'Constants/z-indexes';
 import { useDBotStore } from 'Stores/useDBotStore';
+import { copy_trading_logic } from '../../pages/copytrading/CopyTradingLogic';
 
 type TStatisticsTile = {
     content: React.ReactNode;
