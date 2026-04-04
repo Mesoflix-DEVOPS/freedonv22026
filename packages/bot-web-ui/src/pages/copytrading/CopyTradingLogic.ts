@@ -56,6 +56,10 @@ class CopyTradingLogic {
     private max_stake: number = 100;
     private min_stake: number = 0.35;
 
+    private is_mirroring: boolean = false;
+    private active_api: any = null;
+    private unsubscribe_active: any = null;
+
     constructor() {
         if (typeof window !== 'undefined') {
             this.loadFromStorage();
