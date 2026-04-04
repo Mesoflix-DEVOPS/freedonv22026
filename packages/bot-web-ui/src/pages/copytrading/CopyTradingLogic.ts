@@ -239,6 +239,23 @@ class CopyTradingLogic {
         console.log('[CopyTrading] Mirroring Stopped');
     }
 
+    private async executeWithReAuth(api: any, token: string, request: object) {
+        let res = await api.send(request);
+        
+        if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
+            console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
+            try {
+                await api.authorize(token);
+                // Retry once
+                res = await api.send(request);
+            } catch (reAuthErr) {
+                console.error(`[CopyTrading] Re-auth failed for ${token.substring(0,4)}`);
+                throw new Error('Follower Authorization Failed');
+            }
+        }
+        return res;
+    }
+
     private async executeTargetTrades(tradeData: TradeSignal) {
         if (!this.is_mirroring || this.follower_apis.size === 0) return;
         
@@ -254,7 +271,7 @@ class CopyTradingLogic {
 
                 console.log(`[CopyTrading] Attempting mirror on Follower ${token.substring(0,4)}: ${contract_type} ${symbol} @ ${adjusted_amount}`);
 
-                // Step 1: Get a proposal
+                // Step 1: Proposal
                 const proposal_req = {
                     proposal: 1,
                     amount: adjusted_amount,
@@ -267,8 +284,7 @@ class CopyTradingLogic {
                     barrier: barrier || undefined
                 };
 
-                const proposal_res = await api.send(proposal_req);
-                
+                const proposal_res = await this.executeWithReAuth(api, token, proposal_req);
                 if (proposal_res.error) {
                     console.error(`[CopyTrading] Proposal failed for ${token.substring(0,4)}:`, proposal_res.error.message);
                     return;
@@ -276,14 +292,13 @@ class CopyTradingLogic {
 
                 const proposal_id = proposal_res.proposal.id;
 
-                // Step 2: Buy the proposal
+                // Step 2: Buy
                 const buy_req = {
                     buy: proposal_id,
                     price: adjusted_amount
                 };
 
-                const buy_res = await api.send(buy_req);
-                
+                const buy_res = await this.executeWithReAuth(api, token, buy_req);
                 if (buy_res.error) {
                     console.error(`[CopyTrading] Buy failed for ${token.substring(0,4)}:`, buy_res.error.message);
                 } else {
@@ -298,9 +313,14 @@ class CopyTradingLogic {
     async broadcastTrade(tradeData: TradeSignal) {
         if (!this.is_mirroring) return;
         try {
+            // Filter undefined values for Firebase safety
+            const cleanData = Object.fromEntries(
+                Object.entries(tradeData).filter(([_, v]) => v !== undefined)
+            );
+
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {
-                ...tradeData,
+                ...cleanData,
                 timestamp: serverTimestamp(),
                 master_account: this.active_api?.account_info?.loginid || 'active_ui'
             });
