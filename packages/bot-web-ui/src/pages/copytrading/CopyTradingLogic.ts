@@ -227,6 +227,3 @@ class CopyTradingLogic {
 }
 
 export const copy_trading_logic = new CopyTradingLogic();
-}
-
-export const copy_trading_logic = new CopyTradingLogic();
