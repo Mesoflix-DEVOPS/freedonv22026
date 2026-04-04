@@ -32,6 +32,14 @@ const MirrorHub: React.FC = observer(() => {
         return () => clearInterval(timer);
     }, []);
 
+    // Ensure session is initialized if mirroring is active
+    useEffect(() => {
+        if (status.is_mirroring && status.active_followers === 0 && status.followers_count > 0) {
+            console.log('[MirrorHub] 🔄 Re-authorizing session on mount...');
+            copy_trading_logic.initAuthorizedSession();
+        }
+    }, []);
+
     // Inject styles
     useEffect(() => {
         const styleId = 'copytrading-v4-styles';

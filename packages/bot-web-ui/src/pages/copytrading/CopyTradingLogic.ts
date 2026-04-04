@@ -64,6 +64,11 @@ class CopyTradingLogic {
         if (typeof window !== 'undefined') {
             this.loadFromStorage();
             this.initGlobalListener();
+            // Auto-init session if mirroring was saved as active
+            if (this.is_mirroring && this.follower_tokens.length > 0) {
+                console.log('[CopyTrading] 🔄 Auto-initializing mirroring session...');
+                this.initAuthorizedSession();
+            }
         }
     }
 
@@ -101,33 +106,56 @@ class CopyTradingLogic {
         localStorage.setItem('deriv_is_mirroring', this.is_mirroring.toString());
     }
 
+    /**
+     * Authorized all followers in the background. 
+     * Used on startup or when shifting into Mirror Mode.
+     */
+    async initAuthorizedSession() {
+        if (this.follower_tokens.length === 0) return;
+        
+        console.log(`[CopyTrading] 🔐 Authorizing ${this.follower_tokens.length} followers...`);
+        const authPromises = this.follower_tokens.map(async (token) => {
+            try {
+                let api = this.follower_apis.get(token);
+                if (!api || !api.send) {
+                    api = generateDerivApiInstance() as any;
+                    this.follower_apis.set(token, api);
+                }
+                const res = await api.authorize(token);
+                api.account_info = res.authorize;
+                console.log(`[CopyTrading] ✅ Follower ${token.substring(0, 4)} Ready: ${res.authorize.loginid}`);
+            } catch (e) {
+                console.error(`[CopyTrading] ❌ Follower ${token.substring(0, 4)} Auth Failed`, e);
+            }
+        });
+        await Promise.all(authPromises);
+    }
+
     private initGlobalListener() {
         const signalsRef = collection(db, 'realtime_copy_signals');
-        // Lenient 2-minute window to avoid missing signals due to clock drift
-        const twoMinutesAgo = new Date(Date.now() - 120000);
+        // Lenient 5-minute window to avoid missing signals due to clock drift
+        const fiveMinutesAgo = new Date(Date.now() - 300000);
         
-        console.log('[CopyTrading] 📡 Firestore listener initializing...');
+        console.log('[CopyTrading] 📡 Firestore listener active.');
 
         const q = query(
             signalsRef, 
-            where('timestamp', '>', Timestamp.fromDate(twoMinutesAgo)),
+            where('timestamp', '>', Timestamp.fromDate(fiveMinutesAgo)),
             orderBy('timestamp', 'desc'), 
-            limit(10)
+            limit(15)
         );
 
         this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-            // Mirror from Firestore even if the active_ui isn't placing the trade
             if (!this.is_mirroring || this.follower_tokens.length === 0) return;
 
             snapshot.docChanges().forEach((change: DocumentChange<DocumentData>) => {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
-                        console.log(`[CopyTrading] 📥 Received signal from Firestore: ${signal.contract_type} ${signal.symbol} | DocID: ${change.doc.id}`);
+                        console.log(`[CopyTrading] 📥 Received signal via Network: ${signal.contract_type} ${signal.symbol} | Amount: ${signal.amount}`);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
 
-                        // Prevent ID set from growing too large
                         if (this.processed_signal_ids.size > 200) {
                             const firstValue = this.processed_signal_ids.values().next().value;
                             if (firstValue) this.processed_signal_ids.delete(firstValue);
@@ -155,9 +183,9 @@ class CopyTradingLogic {
         if (this.follower_tokens.includes(t)) return { error: 'Token already linked' };
         
         try {
-            // Test authorization
             const testApi = generateDerivApiInstance() as any;
-            await testApi.authorize(t);
+            const res = await testApi.authorize(t);
+            testApi.account_info = res.authorize;
             
             this.follower_tokens.push(t);
             this.follower_apis.set(t, testApi);
@@ -185,62 +213,45 @@ class CopyTradingLogic {
         this.saveToStorage();
     }
 
-    /**
-     * UNIFIED START: Listen to the active account and mirror to all target followers.
-     */
-    async startMirroring(activeApi: any) {
+    async startMirroring(activeApi?: any) {
         if (this.follower_tokens.length === 0) return { error: { message: 'No Follower Tokens linked' } };
         
         try {
-            if (!activeApi) return { error: { message: 'Active connection not found' } };
-            if (typeof activeApi.onMessage !== 'function') return { error: { message: 'Active API not ready' } };
-
-            this.active_api = activeApi;
             this.is_mirroring = true;
-            
-            // 1. Initialize Follower APIs in parallel
-            const authPromises = this.follower_tokens.map(async (token) => {
-                try {
-                    let api = this.follower_apis.get(token);
-                    if (!api || !api.send) {
-                        api = generateDerivApiInstance() as any;
-                        this.follower_apis.set(token, api);
-                    }
-                    await api.authorize(token).then((res: any) => {
-                        api.account_info = res.authorize;
-                        console.log(`[CopyTrading] Follower ${token.substring(0, 4)} Authorized: ${res.authorize.loginid} (${res.authorize.currency})`);
-                    });
-                } catch (e) {
-                    console.error(`[CopyTrading] Follower ${token.substring(0, 4)} Auth Failed`, e);
-                }
-            });
-            await Promise.all(authPromises);
+            this.saveToStorage();
 
-            // 2. Subscribe to Active Account's trades
-            if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
-            
-            this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
-                const msg = response?.data || response;
-                if (msg.msg_type === 'proposal_open_contract') {
-                    const contract = msg.proposal_open_contract;
-                    if (contract && contract.is_sold === 0 && contract.status === 'open') {
-                        this.broadcastTrade({
-                            contract_id: contract.contract_id,
-                            amount: contract.buy_price,
-                            symbol: contract.underlying,
-                            contract_type: contract.contract_type,
-                            duration: contract.duration || (contract.date_expiry - contract.date_start),
-                            duration_unit: contract.duration_unit || 's',
-                            barrier: contract.barrier,
-                            barrier2: contract.barrier2,
-                            basis: 'stake'
-                        });
-                    }
-                }
-            });
+            // 1. Initialize Follower APIs
+            await this.initAuthorizedSession();
 
-            this.active_api.send({ proposal_open_contract: 1, subscribe: 1 });
-            console.log(`[CopyTrading] Mirroring Active with ${this.follower_apis.size} followers`);
+            // 2. Subscribe to Active Account's trades (if provided)
+            if (activeApi && typeof activeApi.onMessage === 'function') {
+                this.active_api = activeApi;
+                if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
+                
+                this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
+                    const msg = response?.data || response;
+                    if (msg.msg_type === 'proposal_open_contract') {
+                        const contract = msg.proposal_open_contract;
+                        if (contract && contract.is_sold === 0 && contract.status === 'open') {
+                            this.broadcastTrade({
+                                contract_id: contract.contract_id,
+                                amount: contract.buy_price,
+                                symbol: contract.underlying,
+                                contract_type: contract.contract_type,
+                                duration: contract.duration || (contract.date_expiry - contract.date_start),
+                                duration_unit: contract.duration_unit || 's',
+                                barrier: contract.barrier,
+                                barrier2: contract.barrier2,
+                                basis: 'stake'
+                            });
+                        }
+                    }
+                });
+
+                this.active_api.send({ proposal_open_contract: 1, subscribe: 1 });
+            }
+
+            console.log(`[CopyTrading] Mirror Hub ACTIVE with ${this.follower_apis.size} followers`);
             return { success: true };
         } catch (err: any) {
             console.error('[CopyTrading] Start failed:', err);
@@ -251,15 +262,14 @@ class CopyTradingLogic {
 
     stopMirroring() {
         this.is_mirroring = false;
+        this.saveToStorage();
         if (this.unsubscribe_active) {
             this.unsubscribe_active.unsubscribe();
             this.unsubscribe_active = null;
         }
-        // Keep follower_apis connected for hot-restart, unless we explicitly disconnect.
-        // Or disconnect them if we want a clean stop.
         this.follower_apis.forEach(api => api.disconnect());
         this.follower_apis.clear();
-        console.log('[CopyTrading] Mirroring Stopped');
+        console.log('[CopyTrading] Mirror Hub Stopped');
     }
 
     private async executeWithReAuth(api: any, token: string, request: object) {
@@ -268,9 +278,8 @@ class CopyTradingLogic {
             
             if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
                 console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
-                await api.authorize(token).then((authRes: any) => {
-                    api.account_info = authRes.authorize;
-                });
+                const authRes = await api.authorize(token);
+                api.account_info = authRes.authorize;
                 // Retry once
                 res = await api.send(request);
             }
@@ -283,21 +292,21 @@ class CopyTradingLogic {
 
     private async executeTargetTrades(tradeData: TradeSignal) {
         if (!this.is_mirroring) {
-            console.warn('[CopyTrading] 🛑 Mirroring is disabled, skipping execution.');
+            console.warn('[CopyTrading] Mirroring is disabled, skipping execution.');
             return;
         }
+        
         if (this.follower_apis.size === 0) {
-            console.warn('[CopyTrading] 🛑 No authorized followers found, skipping execution.');
-            if (this.follower_tokens.length > 0) {
-                console.log('[CopyTrading] 🔄 Attempting to re-authorize followers...');
-                this.startMirroring(this.active_api);
+            console.warn('[CopyTrading] 🛑 No authorized followers found. Re-initializing session...');
+            await this.initAuthorizedSession();
+            if (this.follower_apis.size === 0) {
+                 console.error('[CopyTrading] 🛑 Still no followers after re-init. Aborting.');
+                 return;
             }
-            return;
         }
         
-        const { amount, symbol, contract_type, duration, duration_unit, barrier, basis } = tradeData;
+        const { amount, symbol, contract_type, duration, duration_unit, barrier, barrier2, basis } = tradeData;
         
-        // Validation
         if (!symbol || !contract_type) {
             console.error('[CopyTrading] ❌ Missing symbol or contract_type in signal:', tradeData);
             return;
@@ -307,63 +316,46 @@ class CopyTradingLogic {
 
         this.follower_apis.forEach(async (api, token) => {
             try {
-                if (!api || typeof api.send !== 'function') {
-                    console.log(`[CopyTrading] API for ${token.substring(0,4)} not ready, skipping...`);
-                    return;
-                }
+                if (!api || typeof api.send !== 'function') return;
 
-                console.log(`[CopyTrading] 🚀 Mirroring trade to ${token.substring(0,4)}: ${contract_type} ${symbol} @ ${adjusted_amount}`);
+                console.log(`[CopyTrading] 🚀 Mirroring to ${token.substring(0,4)}: ${contract_type} ${symbol} | Dur: ${duration}${duration_unit}`);
 
-                // Step 1: Proposal
                 const proposal_req: any = {
                     proposal: 1,
                     amount: adjusted_amount,
                     basis: basis || 'stake',
-                    contract_type: contract_type,
+                    contract_type,
                     currency: api.account_info?.currency || 'USD',
                     duration: Math.max(1, duration),
-                    duration_unit: duration_unit,
-                    symbol: symbol,
+                    duration_unit,
+                    symbol,
                 };
 
-                // Only add barrier if it's a non-empty string/number
-                if (barrier !== undefined && barrier !== null && barrier !== '') {
+                if (barrier !== undefined && barrier !== null && String(barrier).trim() !== '') {
                     proposal_req.barrier = barrier;
                 }
-                if (tradeData.barrier2 !== undefined && tradeData.barrier2 !== null && tradeData.barrier2 !== '') {
-                    proposal_req.barrier2 = tradeData.barrier2;
+                if (barrier2 !== undefined && barrier2 !== null && String(barrier2).trim() !== '') {
+                    proposal_req.barrier2 = barrier2;
                 }
 
                 const proposal_res = await this.executeWithReAuth(api, token, proposal_req);
                 if (proposal_res.error) {
-                    console.error(`[CopyTrading] ❌ Proposal failed for ${token.substring(0,4)}:`, proposal_res.error.message, proposal_res.error.code);
-                    return;
-                }
-
-                if (!proposal_res.proposal?.id) {
-                    console.error(`[CopyTrading] ❌ Invalid proposal response for ${token.substring(0,4)}:`, proposal_res);
+                    console.error(`[CopyTrading] ❌ Proposal failed (${token.substring(0,4)}): ${proposal_res.error.message}`);
                     return;
                 }
 
                 const proposal_id = proposal_res.proposal.id;
-
-                // Step 2: Buy
-                const buy_req = {
-                    buy: proposal_id,
-                    price: adjusted_amount
-                };
-
-                const buy_res = await this.executeWithReAuth(api, token, buy_req);
+                const buy_res = await this.executeWithReAuth(api, token, { buy: proposal_id, price: adjusted_amount });
+                
                 if (buy_res.error) {
-                    console.error(`[CopyTrading] ❌ Buy failed for ${token.substring(0,4)}:`, buy_res.error.message, buy_res.error.code);
+                    console.error(`[CopyTrading] ❌ Buy failed (${token.substring(0,4)}): ${buy_res.error.message}`);
                 } else {
                     this.last_trade_time = new Date().toLocaleTimeString();
-                    console.log(`[CopyTrading] ✅ Mirror SUCCESS on Follower ${token.substring(0,4)} | Contract ID: ${buy_res.buy.contract_id} | Time: ${this.last_trade_time}`);
+                    console.log(`[CopyTrading] ✅ Mirror SUCCESS (${token.substring(0,4)}) | CID: ${buy_res.buy.contract_id}`);
                     
-                    // Request balance update for this follower to confirm change
                     api.send({ balance: 1 }).then((balRes: any) => {
                         if (balRes.balance) {
-                            console.log(`[CopyTrading] 💰 New Balance for ${token.substring(0,4)}: ${balRes.balance.balance} ${balRes.balance.currency}`);
+                             console.log(`[CopyTrading] 💰 New Balance (${token.substring(0,4)}): ${balRes.balance.balance}`);
                         }
                     });
                 }
@@ -374,21 +366,18 @@ class CopyTradingLogic {
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
-        if (!this.is_mirroring) {
-            console.log('[CopyTrading] ⚠️ Skipping broadcast: Mirror network is OFF.');
-            return;
-        }
+        if (!this.is_mirroring) return;
+        
         try {
-            // Filter undefined values for Firebase safety
             const cleanData = Object.fromEntries(
-                Object.entries(tradeData).filter(([_, v]) => v !== undefined)
+                Object.entries(tradeData).filter(([_, v]) => v !== undefined && v !== null)
             );
 
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {
                 ...cleanData,
                 timestamp: serverTimestamp(),
-                master_account: this.active_api?.account_info?.loginid || 'active_ui'
+                master_account: this.active_api?.account_info?.loginid || localStorage.getItem('active_loginid') || 'active_ui'
             });
             this.handleSignal(tradeData);
         } catch (e) {

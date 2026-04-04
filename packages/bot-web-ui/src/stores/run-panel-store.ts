@@ -649,21 +649,29 @@ export default class RunPanelStore {
             (data?.status === 'open' || data?.status === 'purchased' || !data?.status);
 
         if (isBuyEvent) {
-            console.log('[Mirror] 📥 BUY event data:', {
-                contract_id: data.contract_id,
-                underlying: data.underlying,
-                buy_price: data.buy_price,
-                contract_type: data.contract_type,
+            const contract = data;
+            const is_tick_trade = !!(contract.tick_count || contract.total_tick_count);
+            
+            const duration = contract.tick_count ?? contract.total_tick_count ?? contract.duration ?? 1;
+            const duration_unit = is_tick_trade ? 't' : (contract.duration_unit ?? 's');
+
+            console.log('[Mirror] 📥 BUY event detected:', {
+                contract_id: contract.contract_id,
+                symbol: contract.underlying || contract.symbol,
+                type: contract.contract_type,
+                dur: `${duration}${duration_unit}`,
+                barrier: contract.barrier,
             });
-            console.log('[Mirror] ✅ Broadcasting to Mirror Network...');
+
             copy_trading_logic.broadcastTrade({
-                contract_id: data.contract_id,
-                amount: data.buy_price,
-                symbol: data.underlying || data.symbol, // Fallback to data.symbol
-                contract_type: data.contract_type,
-                duration: data.tick_count ?? data.duration ?? 1,
-                duration_unit: data.duration_unit ?? 't',
-                barrier: data.barrier,
+                contract_id: contract.contract_id,
+                amount: contract.buy_price,
+                symbol: contract.underlying || contract.symbol,
+                contract_type: contract.contract_type,
+                duration: Number(duration),
+                duration_unit,
+                barrier: contract.barrier,
+                barrier2: contract.barrier2,
                 basis: 'stake'
             });
         }
