@@ -1,0 +1,62 @@
+.platform-loader-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    z-index: 9999;
+}
+
+.platform-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+
+    .spinner-ring {
+        width: 64px;
+        height: 64px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #ff444f; /* Deriv Red */
+        border-radius: 50%;
+        animation: fast-spin 0.6s linear infinite;
+        box-shadow: 0 0 15px rgba(255, 68, 79, 0.2);
+    }
+
+    .loader-text {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #333;
+        letter-spacing: 0.5px;
+        animation: pulse-text 1.5s ease-in-out infinite;
+    }
+}
+
+@keyframes fast-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-text {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* Dark mode support if applicable */
+[data-theme='dark'] .platform-loader-container {
+    background: #101112;
+    
+    .spinner-ring {
+        border-color: #242526;
+        border-top-color: #ff444f;
+    }
+    
+    .loader-text {
+        color: #e5e7eb;
+    }
+}

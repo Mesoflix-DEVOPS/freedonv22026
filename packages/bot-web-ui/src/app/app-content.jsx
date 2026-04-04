@@ -14,9 +14,7 @@ import NetworkToastPopup from '../components/network-toast-popup';
 import RoutePromptDialog from '../components/route-prompt-dialog';
 import BotBuilder from '../pages/bot-builder';
 import Main from '../pages/main';
-import './app.scss';
-import 'react-toastify/dist/ReactToastify.css';
-import '../components/bot-notification/bot-notification.scss';
+import PlatformLoader from '../components/platform-loader/platform-loader';
 
 const AppContent = observer(() => {
     const [is_loading, setIsLoading] = React.useState(true);
@@ -127,7 +125,7 @@ const AppContent = observer(() => {
     }, []);
 
     return is_loading ? (
-        <Loading />
+        <PlatformLoader />
     ) : (
         <>
             <BlocklyLoading />

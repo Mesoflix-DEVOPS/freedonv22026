@@ -9,7 +9,7 @@ import Cards from './cards';
 import InfoPanel from './info-panel';
 import Announcements from './announcements/announcements';
 import WithdrawalToaster from './withdrawal-toaster';
-import './dashboard-cards.scss';
+import SocialMediaBar from './social-media-bar';
 
 type TMobileIconGuide = {
     handleTabChange: (active_number: number) => void;
@@ -61,6 +61,8 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                     'Import a bot from your computer or Google Drive, build it from scratch, or start with a quick strategy.'
                                 )}
                             </Text>
+
+                            <SocialMediaBar />
                         </div>
                         <Cards has_dashboard_strategies={has_dashboard_strategies} is_mobile={!is_desktop}>
                         </Cards>
