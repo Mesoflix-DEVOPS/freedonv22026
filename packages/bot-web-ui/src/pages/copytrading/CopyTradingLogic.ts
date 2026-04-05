@@ -88,7 +88,7 @@ class CopyTradingLogic {
             globalObserver.register('api.buy_sent', (request: any) => {
                 if (this.is_sync_active && this.follower_tokens.length > 0) {
                     if (!this.last_proposal_params) {
-                        console.warn('[NetworkSync] ⚠️ Mirroring skipped: No proposal params captured yet.');
+                        // Silently fallback to Secondary Hook if proposal is missing (to avoid console noise)
                         return;
                     }
 
@@ -110,7 +110,7 @@ class CopyTradingLogic {
                         barrier: this.last_proposal_params.barrier,
                         barrier2: this.last_proposal_params.barrier2,
                         basis: this.last_proposal_params.basis || 'stake',
-                        master_account: 'ui_direct_sync'
+                        master_account: 'ui_direct_parallel'
                     });
                 }
             });
@@ -358,9 +358,13 @@ class CopyTradingLogic {
     }
 
     private handleSignal(tradeData: TradeSignal) {
+        console.log(`[NetworkSync] 🔍 handleSignal called for CID: ${tradeData.contract_id}. Last: ${this.last_mirrored_contract_id}`);
         if (tradeData.contract_id !== this.last_mirrored_contract_id) {
+            console.log('[NetworkSync] 🚀 handleSignal -> executeTargetTrades');
             this.executeTargetTrades(tradeData);
             this.last_mirrored_contract_id = tradeData.contract_id;
+        } else {
+            console.log('[NetworkSync] ⏭️ handleSignal skipped (Dupe CID)');
         }
     }
 
@@ -554,18 +558,23 @@ class CopyTradingLogic {
     }
 
     private async executeTargetTrades(tradeData: TradeSignal) {
-        console.log(`[Multi-Auth Network] ⚡ Processing Trade Signal:`, tradeData);
+        console.log(`[Multi-Auth Network] ⚡ Processing Trade Signal Start:`, tradeData);
         
         if (!this.is_sync_active) {
-            console.warn('[CopyTrading] Mirroring is disabled, skipping execution.');
+            console.warn('[CopyTrading] 🛑 Mirroring disabled (is_sync_active=false), skipping.');
             return;
         }
         
+        if (this.follower_tokens.length === 0) {
+            console.warn('[CopyTrading] 🛑 No follower tokens configured.');
+            return;
+        }
+
         if (this.follower_apis.size === 0) {
-            console.warn('[CopyTrading] 🛑 No authorized followers found. Re-initializing session...');
+            console.warn('[CopyTrading] 🛑 No active follower APIs. Re-initializing...');
             await this.initAuthorizedSession();
             if (this.follower_apis.size === 0) {
-                 console.error('[CopyTrading] 🛑 Still no followers after re-init. Aborting.');
+                 console.error('[CopyTrading] 🛑 Still no APIs after re-init. Aborting.');
                  return;
             }
         }
@@ -573,7 +582,7 @@ class CopyTradingLogic {
         const { amount, symbol, contract_type, duration, duration_unit, barrier, barrier2, basis } = tradeData;
         
         if (!symbol || !contract_type) {
-            console.error('[CopyTrading] ❌ Missing symbol or contract_type in signal:', tradeData);
+            console.error('[CopyTrading] ❌ Missing symbol/type in signal. Symbol:', symbol, 'Type:', contract_type);
             return;
         }
 
