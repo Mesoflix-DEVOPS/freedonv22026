@@ -255,6 +255,15 @@ class CopyTradingLogic {
                     this.follower_balances.set(token, { ...existing, last_status: 'Authorizing...' });
                     
                     const res = await this.executeWithTimeout(api.authorize(token), 10000, 'Auth Timeout');
+                    
+                    console.group(`[Multi-Auth Network] 🔐 Authorize Response for ${tokenSnippet}`);
+                    console.log('API Response:', res);
+                    console.groupEnd();
+
+                    if (res.error) {
+                        throw new Error(`Auth Error: ${res.error.message || 'Unknown'}`);
+                    }
+
                     api.is_authorised = true;
                     api.account_info = res.authorize;
                     
@@ -271,6 +280,10 @@ class CopyTradingLogic {
                 
                 // 4. FINAL: Fetch Status
                 const balRes = await this.executeWithTimeout(api.send({ balance: 1 }), 5000, 'HealthCheck Failed');
+                console.group(`[Multi-Auth Network] 🏥 Health Check for ${tokenSnippet}`);
+                console.log('Balance Response:', balRes);
+                console.groupEnd();
+
                 if (balRes.balance) {
                     this.follower_balances.set(token, {
                         balance: balRes.balance.balance,
@@ -355,9 +368,11 @@ class CopyTradingLogic {
         try {
             const testApi = generateDerivApiInstance() as any;
             const res = await testApi.authorize(t);
+            testApi.is_authorised = true;
             testApi.account_info = res.authorize;
             
             const balRes = await testApi.send({ balance: 1 });
+            console.log(`[NetworkSync] ➕ Follower added: ...${t.slice(-4)} | LoginID: ${res.authorize.loginid}`);
             
             this.follower_tokens.push(t);
             this.follower_apis.set(t, testApi);
@@ -491,26 +506,33 @@ class CopyTradingLogic {
         const tokenSnippet = `...${token.slice(-4)}`;
         const reqType = Object.keys(request)[0];
         
-        console.group(`[Multi-Auth Network] 📤 Request to ${tokenSnippet}: ${reqType}`);
+        const req_style = 'background: #222; color: #bada55; font-weight: bold; padding: 2px 4px;';
+        const res_style = 'background: #222; color: #ffeb3b; font-weight: bold; padding: 2px 4px;';
+        const err_style = 'background: #f44336; color: #fff; font-weight: bold; padding: 2px 4px;';
+
+        console.group(`%c[Multi-Auth Network] 📤 Request to ${tokenSnippet}: ${reqType}`, req_style);
         console.log('Payload:', JSON.stringify(request, null, 2));
         console.groupEnd();
 
         try {
             let res = await api.send(request);
             
-            console.group(`[Multi-Auth Network] 📥 Response from ${tokenSnippet}: ${reqType}`);
             if (res.error) {
-                console.error('Error:', res.error);
+                console.group(`%c[Multi-Auth Network] ❌ Error from ${tokenSnippet}: ${reqType}`, err_style);
+                console.error('Error Details:', res.error);
+                console.groupEnd();
             } else {
+                console.group(`%c[Multi-Auth Network] 📥 Response from ${tokenSnippet}: ${reqType}`, res_style);
                 console.log('Success:', res[reqType] || res);
+                console.groupEnd();
             }
-            console.groupEnd();
 
             if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
                 console.warn(`[NetworkSync] 🔐 Token ${tokenSnippet} needs re-auth...`);
                 const authRes = await api.authorize(token);
                 api.account_info = authRes.authorize;
-                
+                api.is_authorised = true;
+
                 console.log(`[NetworkSync] 🔄 Retrying ${reqType} for ${tokenSnippet}...`);
                 res = await api.send(request);
                 
@@ -520,7 +542,7 @@ class CopyTradingLogic {
             }
             return res;
         } catch (e) {
-            console.error(`[Multi-Auth Network] 💥 Critical Failure for ${tokenSnippet}:`, e);
+            console.error(`%c[Multi-Auth Network] 💥 Critical Failure for ${tokenSnippet}:`, err_style, e);
             return { error: { message: 'Network or internal error' } };
         }
     }

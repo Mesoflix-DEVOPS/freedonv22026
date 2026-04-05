@@ -56,9 +56,20 @@ class APIMiddleware {
                 const res_type = this.getRequestType(res);
                 if (res_type) {
                     this.defineMeasure(res_type);
+
+                    // Add global logging for critical trade/auth events
+                    if (['buy', 'authorize', 'proposal_open_contract'].includes(res_type)) {
+                        const style = 'background: #333; color: #03a9f4; font-weight: bold; padding: 1px 3px; border-radius: 2px;';
+                        console.log(`%c[Global-API] 📥 Response: ${res_type}`, style, res);
+                    }
                 }
             })
-            .catch(() => {});
+            .catch(error => {
+                const req_type = this.getRequestType(request);
+                if (['buy', 'authorize', 'proposal_open_contract'].includes(req_type)) {
+                    console.error(`[Global-API] ❌ Request Failed: ${req_type}`, error);
+                }
+            });
         return response_promise;
     };
 }
