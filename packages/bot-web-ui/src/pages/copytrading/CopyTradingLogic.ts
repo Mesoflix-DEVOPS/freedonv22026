@@ -315,9 +315,6 @@ class CopyTradingLogic {
     async startMirroring(activeApi?: any) {
         if (this.follower_tokens.length === 0) return { error: { message: 'No accounts authorized' } };
         
-    async startMirroring(activeApi?: any) {
-        if (this.follower_tokens.length === 0) return { error: { message: 'No accounts authorized' } };
-        
         try {
             this.is_sync_active = true;
             this.saveToStorage();
