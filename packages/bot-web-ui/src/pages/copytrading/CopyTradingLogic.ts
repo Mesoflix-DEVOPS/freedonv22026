@@ -72,6 +72,7 @@ class CopyTradingLogic {
     private last_direct_exec_time: number = 0;
     private signal_queue: TradeSignal[] = [];
     private is_initializing: boolean = false;
+    private proactive_req_ids: Set<number> = new Set();
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -86,33 +87,38 @@ class CopyTradingLogic {
                 }
             });
 
-            // Direct Parallel Hook - Trigger simultaneous trades
+                        // Direct Parallel Hook — Trigger simultaneous trades at the instant they leave the laptop
             globalObserver.register('api.buy_sent', (request: any) => {
                 if (this.is_sync_active && this.follower_tokens.length > 0) {
-                    if (!this.last_proposal_params) {
-                        // Silently fallback to Secondary Hook if proposal is missing (to avoid console noise)
+                    const req_id = request.req_id;
+                    const parameters = request.parameters || this.last_proposal_params;
+
+                    if (!parameters) {
+                        // Silently fallback if no params found in either the buy request or recent proposal
                         return;
                     }
 
-                    // Anti-Spam / Deduplicate within 500ms
-                    const now = Date.now();
-                    if (now - this.last_direct_exec_time < 500) return;
-                    this.last_direct_exec_time = now;
+                    // Strict Deduplication: If we already triggered this specific req_id proactively, ignore
+                    if (this.proactive_req_ids.has(req_id)) return;
+                    this.proactive_req_ids.add(req_id);
+                    
+                    // Anti-Spam: Clear old req_ids after 30s
+                    setTimeout(() => this.proactive_req_ids.delete(req_id), 30000);
 
-                    console.log('[NetworkSync] ⚡ DIRECT PARALLEL SIGNAL CAPTURED. Syncing across network...');
-                    this.addTrace("Direct Parallel Execution [UI Blitz]");
+                    console.log(`[NetworkSync] ⚡ PROACTIVE BLITZ: Simultaneous trigger for ${parameters.symbol}`);
+                    this.addTrace(`Proactive Blitz [Sent Hook]`);
 
                     this.executeTargetTrades({
-                        contract_id: now, 
-                        amount: this.last_proposal_params.amount || request.price,
-                        symbol: this.last_proposal_params.symbol,
-                        contract_type: this.last_proposal_params.contract_type,
-                        duration: this.last_proposal_params.duration,
-                        duration_unit: this.last_proposal_params.duration_unit,
-                        barrier: this.last_proposal_params.barrier,
-                        barrier2: this.last_proposal_params.barrier2,
-                        basis: this.last_proposal_params.basis || 'stake',
-                        master_account: 'ui_direct_parallel'
+                        contract_id: req_id, // Use req_id as temporary signal ID for deduplication
+                        amount: parameters.amount || request.price,
+                        symbol: parameters.symbol,
+                        contract_type: parameters.contract_type,
+                        duration: parameters.duration,
+                        duration_unit: parameters.duration_unit,
+                        barrier: parameters.barrier,
+                        barrier2: parameters.barrier2,
+                        basis: parameters.basis || 'stake',
+                        master_account: 'ui_proactive_blitz'
                     });
                 }
             });

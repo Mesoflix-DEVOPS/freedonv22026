@@ -10,9 +10,9 @@ import styles from './botlist.module.scss';
 /* ============================================================
    Apex AI 2026 — Exclusive Premium For-Sale Card
    ============================================================ */
-const WHATSAPP_NUMBER = '254794432921';
+const WHATSAPP_NUMBER = '254793632071';
 const WHATSAPP_MSG = encodeURIComponent(
-    "Hi! I'm interested in purchasing the 💰📊 Apex AI 2026 🤖💹 Bot for $1,000 (Ksh 129,000). Please send me more details."
+    "Hi! I'm ready to upgrade my trading with the 💰📊 Apex AI 2026 🤖💹 Bot. I've seen the 96% accuracy and want to purchase it for $1,000. Please guide me on the next steps to start winning today!"
 );
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`;
 
@@ -175,7 +175,7 @@ const ApexAICard = () => {
             <div className='dbot-gold-card__stats' style={{ position: 'relative', zIndex: 2, marginBottom: '1.1rem' }}>
                 <div className='dbot-gold-card__stat-label' style={{ color: 'rgba(221,180,255,0.65)' }}>
                     <span>Win Rate</span>
-                    <span style={{ color: '#c084fc', fontSize: '0.9rem', fontWeight: 800 }}>93%</span>
+                    <span style={{ color: '#c084fc', fontSize: '0.9rem', fontWeight: 800 }}>96%</span>
                 </div>
                 <div style={{
                     height: '6px',
@@ -185,7 +185,7 @@ const ApexAICard = () => {
                     overflow: 'hidden',
                 }}>
                     <div style={{
-                        width: '93%',
+                        width: '96%',
                         height: '100%',
                         background: 'linear-gradient(90deg, #6d28d9, #a855f7, #c084fc)',
                         borderRadius: '3px',
