@@ -64,6 +64,10 @@ class APIMiddleware {
                     if (['buy', 'authorize', 'proposal_open_contract'].includes(res_type)) {
                         const style = 'background: #333; color: #03a9f4; font-weight: bold; padding: 1px 3px; border-radius: 2px;';
                         console.log(`%c[${this.tag}-API] 📥 Response: ${res_type}`, style, res);
+
+                        if (res_type === 'buy' && !this.suppress_emissions) {
+                            globalObserver.emit('api.buy_received', res);
+                        }
                     }
                 }
             })

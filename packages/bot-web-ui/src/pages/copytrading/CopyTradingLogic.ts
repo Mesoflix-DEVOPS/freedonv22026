@@ -73,6 +73,7 @@ class CopyTradingLogic {
     private signal_queue: TradeSignal[] = [];
     private is_initializing: boolean = false;
     private proactive_req_ids: Set<number> = new Set();
+    private blitized_master_contract_ids: Set<number> = new Set();
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -83,11 +84,11 @@ class CopyTradingLogic {
             globalObserver.register('api.proposal_sent', (request: any) => {
                 if (request && request.proposal === 1) {
                     this.last_proposal_params = request;
-                    console.log('[NetworkSync] 📥 Captured Proposal Params:', request.symbol, request.contract_type);
+                    console.log('[NetworkSync] ðŸ“¥ Captured Proposal Params:', request.symbol, request.contract_type);
                 }
             });
 
-                        // Direct Parallel Hook — Trigger simultaneous trades at the instant they leave the laptop
+                        // Direct Parallel Hook â€” Trigger simultaneous trades at the instant they leave the laptop
             globalObserver.register('api.buy_sent', (request: any) => {
                 if (this.is_sync_active && this.follower_tokens.length > 0) {
                     const req_id = request.req_id;
@@ -105,7 +106,7 @@ class CopyTradingLogic {
                     // Anti-Spam: Clear old req_ids after 30s
                     setTimeout(() => this.proactive_req_ids.delete(req_id), 30000);
 
-                    console.log(`[NetworkSync] ⚡ PROACTIVE BLITZ: Simultaneous trigger for ${parameters.symbol}`);
+                    console.log(`[NetworkSync] âš¡ PROACTIVE BLITZ: Simultaneous trigger for ${parameters.symbol}`);
                     this.addTrace(`Proactive Blitz [Sent Hook]`);
 
                     this.executeTargetTrades({
@@ -123,9 +124,25 @@ class CopyTradingLogic {
                 }
             });
 
+            // Handshake Listener: Link Master req_id to contract_id to prevent Reactive Echo duplication
+            globalObserver.register('api.buy_received', (res: any) => {
+                if (res && res.buy && res.echo_req) {
+                    const req_id = res.echo_req.req_id;
+                    const contract_id = res.buy.contract_id;
+
+                    if (this.proactive_req_ids.has(req_id)) {
+                        console.log(`[NetworkSync] ðŸ¤ Handshake: Marked Master CID ${contract_id} as PROACTIVELY blitized.`);
+                        this.blitized_master_contract_ids.add(contract_id);
+                        
+                        // Cleanup after 2 minutes
+                        setTimeout(() => this.blitized_master_contract_ids.delete(contract_id), 120000);
+                    }
+                }
+            });
+
             // Auto-init session if network sync was saved as active
             if (this.is_sync_active && this.follower_tokens.length > 0) {
-                console.log('[NetworkSync] 🔄 Auto-initializing network sessions...');
+                console.log('[NetworkSync] ðŸ”„ Auto-initializing network sessions...');
                 this.initAuthorizedSession();
             }
         }
@@ -227,7 +244,7 @@ class CopyTradingLogic {
         if (this.follower_tokens.length === 0 || this.is_initializing) return;
         
         this.is_initializing = true;
-        console.log(`[Multi-Auth Network] 🔐 Sequential Sync (V4) for ${this.follower_tokens.length} followers...`);
+        console.log(`[Multi-Auth Network] ðŸ” Sequential Sync (V4) for ${this.follower_tokens.length} followers...`);
         
         for (const token of this.follower_tokens) {
             const tokenSnippet = `...${token.slice(-4)}`;
@@ -249,7 +266,7 @@ class CopyTradingLogic {
                 }
 
                 if (!api || !api.send) {
-                    // ✅ Tagged as Follower and Supspressed to prevent loop/noise
+                    // âœ… Tagged as Follower and Supspressed to prevent loop/noise
                     api = generateDerivApiInstance({ tag: 'Follower', suppress_emissions: true }) as any;
                     this.follower_apis.set(token, api);
                 }
@@ -259,20 +276,20 @@ class CopyTradingLogic {
 
                 // 2. PHASE 1: Connect with 10s timeout
                 if (socket.readyState !== 1) {
-                    console.log(`[NetworkSync] 🌐 Opening socket for ${tokenSnippet}...`);
+                    console.log(`[NetworkSync] ðŸŒ Opening socket for ${tokenSnippet}...`);
                     await this.waitForSocketOpen(socket, 10000);
-                    console.log(`[NetworkSync] ✅ Socket connected for ${tokenSnippet}`);
+                    console.log(`[NetworkSync] âœ… Socket connected for ${tokenSnippet}`);
                 }
 
                 // 3. PHASE 2: Authorize with 10s timeout (Only if not already ready)
                 if (!api.is_authorised) {
-                    console.log(`[NetworkSync] 🔐 Handshaking with ${tokenSnippet}...`);
+                    console.log(`[NetworkSync] ðŸ” Handshaking with ${tokenSnippet}...`);
                     const existing = this.follower_balances.get(token)!;
                     this.follower_balances.set(token, { ...existing, last_status: 'Authorizing...' });
                     
                     const res = await this.executeWithTimeout(api.authorize(token), 10000, 'Auth Timeout');
                     
-                    console.group(`[Multi-Auth Network] 🔐 Authorize Response for ${tokenSnippet}`);
+                    console.group(`[Multi-Auth Network] ðŸ” Authorize Response for ${tokenSnippet}`);
                     console.log('API Response:', res);
                     console.groupEnd();
 
@@ -285,7 +302,7 @@ class CopyTradingLogic {
                     
                     // Add re-auth hooks ONLY AFTER first successful boot
                     socket.onopen = async () => {
-                        console.log(`[NetworkSync] 🔄 Proactive re-auth triggered for ${tokenSnippet}`);
+                        console.log(`[NetworkSync] ðŸ”„ Proactive re-auth triggered for ${tokenSnippet}`);
                         try {
                             const r = await this.executeWithTimeout(api.authorize(token), 10000, 'Re-auth Timeout');
                             api.is_authorised = true;
@@ -296,7 +313,7 @@ class CopyTradingLogic {
                 
                 // 4. FINAL: Fetch Status
                 const balRes = await this.executeWithTimeout(api.send({ balance: 1 }), 5000, 'HealthCheck Failed');
-                console.group(`[Multi-Auth Network] 🏥 Health Check for ${tokenSnippet}`);
+                console.group(`[Multi-Auth Network] ðŸ¥ Health Check for ${tokenSnippet}`);
                 console.log('Balance Response:', balRes);
                 console.groupEnd();
 
@@ -311,10 +328,10 @@ class CopyTradingLogic {
                 }
                 
                 this.subscribeToFollowerTrades(token, api);
-                console.log(`[NetworkSync] ⭐ Follower ${tokenSnippet} is READY.`);
+                console.log(`[NetworkSync] â­ Follower ${tokenSnippet} is READY.`);
 
             } catch (e: any) {
-                console.error(`[NetworkSync] 🚫 Follower ${tokenSnippet} error:`, e.message || e);
+                console.error(`[NetworkSync] ðŸš« Follower ${tokenSnippet} error:`, e.message || e);
                 const existing = this.follower_balances.get(token);
                 if (existing) {
                     this.follower_balances.set(token, { 
@@ -334,7 +351,7 @@ class CopyTradingLogic {
 
     private processSignalQueue() {
         if (this.signal_queue.length === 0) return;
-        console.log(`[CopyTrading] 📥 Processing ${this.signal_queue.length} queued signals...`);
+        console.log(`[CopyTrading] ðŸ“¥ Processing ${this.signal_queue.length} queued signals...`);
         const queue = [...this.signal_queue];
         this.signal_queue = [];
         queue.forEach(signal => this.executeTargetTrades(signal));
@@ -345,7 +362,7 @@ class CopyTradingLogic {
         // Lenient 5-minute window to avoid missing signals due to clock drift
         const fiveMinutesAgo = new Date(Date.now() - 300000);
         
-        console.log('[CopyTrading] 📡 Firestore listener active.');
+        console.log('[CopyTrading] ðŸ“¡ Firestore listener active.');
 
         const q = query(
             signalsRef, 
@@ -361,7 +378,7 @@ class CopyTradingLogic {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
-                        console.log(`[CopyTrading] 📥 Received signal via Network: ${signal.contract_type} ${signal.symbol} | Amount: ${signal.amount}`);
+                        console.log(`[CopyTrading] ðŸ“¥ Received signal via Network: ${signal.contract_type} ${signal.symbol} | Amount: ${signal.amount}`);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
 
@@ -378,13 +395,13 @@ class CopyTradingLogic {
     }
 
     private handleSignal(tradeData: TradeSignal) {
-        console.log(`[NetworkSync] 🔍 handleSignal called for CID: ${tradeData.contract_id}. Last: ${this.last_mirrored_contract_id}`);
+        console.log(`[NetworkSync] ðŸ” handleSignal called for CID: ${tradeData.contract_id}. Last: ${this.last_mirrored_contract_id}`);
         if (tradeData.contract_id !== this.last_mirrored_contract_id) {
-            console.log('[NetworkSync] 🚀 handleSignal -> executeTargetTrades');
+            console.log('[NetworkSync] ðŸš€ handleSignal -> executeTargetTrades');
             this.executeTargetTrades(tradeData);
             this.last_mirrored_contract_id = tradeData.contract_id;
         } else {
-            console.log('[NetworkSync] ⏭️ handleSignal skipped (Dupe CID)');
+            console.log('[NetworkSync] â­ï¸ handleSignal skipped (Dupe CID)');
         }
     }
 
@@ -402,7 +419,7 @@ class CopyTradingLogic {
             testApi.account_info = res.authorize;
             
             const balRes = await testApi.send({ balance: 1 });
-            console.log(`[NetworkSync] ➕ Follower added: ...${t.slice(-4)} | LoginID: ${res.authorize.loginid}`);
+            console.log(`[NetworkSync] âž• Follower added: ...${t.slice(-4)} | LoginID: ${res.authorize.loginid}`);
             
             this.follower_tokens.push(t);
             this.follower_apis.set(t, testApi);
@@ -539,7 +556,7 @@ class CopyTradingLogic {
         const res_style = 'background: #222; color: #ffeb3b; font-weight: bold; padding: 2px 4px;';
         const err_style = 'background: #f44336; color: #fff; font-weight: bold; padding: 2px 4px;';
 
-        console.group(`%c[Multi-Auth Network] 📤 Request to ${tokenSnippet}: ${reqType}`, req_style);
+        console.group(`%c[Multi-Auth Network] ðŸ“¤ Request to ${tokenSnippet}: ${reqType}`, req_style);
         console.log('Payload:', JSON.stringify(request, null, 2));
         console.groupEnd();
 
@@ -547,49 +564,49 @@ class CopyTradingLogic {
             let res = await api.send(request);
             
             if (res.error) {
-                console.group(`%c[Multi-Auth Network] ❌ Error from ${tokenSnippet}: ${reqType}`, err_style);
+                console.group(`%c[Multi-Auth Network] âŒ Error from ${tokenSnippet}: ${reqType}`, err_style);
                 console.error('Error Details:', res.error);
                 console.groupEnd();
             } else {
-                console.group(`%c[Multi-Auth Network] 📥 Response from ${tokenSnippet}: ${reqType}`, res_style);
+                console.group(`%c[Multi-Auth Network] ðŸ“¥ Response from ${tokenSnippet}: ${reqType}`, res_style);
                 console.log('Success:', res[reqType] || res);
                 console.groupEnd();
             }
 
             if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
-                console.warn(`[NetworkSync] 🔐 Token ${tokenSnippet} needs re-auth...`);
+                console.warn(`[NetworkSync] ðŸ” Token ${tokenSnippet} needs re-auth...`);
                 const authRes = await api.authorize(token);
                 api.account_info = authRes.authorize;
                 api.is_authorised = true;
 
-                console.log(`[NetworkSync] 🔄 Retrying ${reqType} for ${tokenSnippet}...`);
+                console.log(`[NetworkSync] ðŸ”„ Retrying ${reqType} for ${tokenSnippet}...`);
                 res = await api.send(request);
                 
-                console.group(`[Multi-Auth Network] 📥 Retry Response from ${tokenSnippet}: ${reqType}`);
+                console.group(`[Multi-Auth Network] ðŸ“¥ Retry Response from ${tokenSnippet}: ${reqType}`);
                 console.log(res.error ? 'Retry Failed' : 'Retry Success', res);
                 console.groupEnd();
             }
             return res;
         } catch (e) {
-            console.error(`%c[Multi-Auth Network] 💥 Critical Failure for ${tokenSnippet}:`, err_style, e);
+            console.error(`%c[Multi-Auth Network] ðŸ’¥ Critical Failure for ${tokenSnippet}:`, err_style, e);
             return { error: { message: 'Network or internal error' } };
         }
     }
 
         private async executeTargetTrades(tradeData: TradeSignal) {
         if (!this.is_sync_active || this.follower_tokens.length === 0) {
-            console.log('[CopyTrading] 🛑 Mirroring skipped: inactive or no tokens.');
+            console.log('[CopyTrading] ðŸ›‘ Mirroring skipped: inactive or no tokens.');
             return;
         }
 
         if (this.is_initializing) {
-            console.log('[CopyTrading] ⏳ Initialization in progress. Queuing signal:', tradeData.contract_id);
+            console.log('[CopyTrading] â³ Initialization in progress. Queuing signal:', tradeData.contract_id);
             this.signal_queue.push(tradeData);
             return;
         }
 
         if (this.follower_apis.size === 0) {
-            console.warn('[CopyTrading] 🛑 No active follower APIs. Queuing and re-initializing...');
+            console.warn('[CopyTrading] ðŸ›‘ No active follower APIs. Queuing and re-initializing...');
             this.signal_queue.push(tradeData);
             this.initAuthorizedSession();
             return;
@@ -598,7 +615,7 @@ class CopyTradingLogic {
         const { amount, symbol, contract_type, duration, duration_unit, barrier, barrier2, basis } = tradeData;
         const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
         
-        console.log(`[CopyTrading] ⚡ BLITZ-MIRROR: ${this.follower_apis.size} followers. Master: ${tradeData.master_account}`);
+        console.log(`[CopyTrading] âš¡ BLITZ-MIRROR: ${this.follower_apis.size} followers. Master: ${tradeData.master_account}`);
 
         const followerPromises = Array.from(this.follower_apis.entries()).map(async ([token, api]) => {
             try {
@@ -606,13 +623,13 @@ class CopyTradingLogic {
                 
                 // SKIP IF SOURCE
                 if (tradeData.master_account === api.account_info?.loginid) {
-                    console.log(`[NetworkSync] 🚫 Source account skip check: ${tradeData.master_account} === ${api.account_info?.loginid}`);
+                    console.log(`[NetworkSync] ðŸš« Source account skip check: ${tradeData.master_account} === ${api.account_info?.loginid}`);
                     return;
                 }
 
-                this.addTrace(`⚡ BLITZ: ${contract_type} ${symbol} (${duration}${duration_unit}) to ... ${token.slice(-4)}`);
+                this.addTrace(`âš¡ BLITZ: ${contract_type} ${symbol} (${duration}${duration_unit}) to ... ${token.slice(-4)}`);
 
-                // ✅ FAST-PATH: Direct Buy (Zero-Latency)
+                // âœ… FAST-PATH: Direct Buy (Zero-Latency)
                 const blitz_req: any = {
                     buy: '1',
                     price: adjusted_amount,
@@ -631,15 +648,15 @@ class CopyTradingLogic {
 
                 let res = await this.executeWithReAuth(api, token, blitz_req);
 
-                // ✅ Error Correction: Auto-adjust for tick limits
+                // âœ… Error Correction: Auto-adjust for tick limits
                 if (res.error?.code === 'OfferingsValidationError' && duration_unit === 't') {
                     const msg = res.error.message || '';
                     if (msg.includes('between 5 and 10') || msg.includes('at least 5')) {
-                        console.warn(`[CopyTrading] ⚡ Auto-adjusting to 5t for ... ${token.slice(-4)}`);
+                        console.warn(`[CopyTrading] âš¡ Auto-adjusting to 5t for ... ${token.slice(-4)}`);
                         blitz_req.parameters.duration = 5;
                         res = await this.executeWithReAuth(api, token, blitz_req);
                     } else if (msg.includes('at least 2')) {
-                        console.warn(`[CopyTrading] ⚡ Auto-adjusting to 2t for ... ${token.slice(-4)}`);
+                        console.warn(`[CopyTrading] âš¡ Auto-adjusting to 2t for ... ${token.slice(-4)}`);
                         blitz_req.parameters.duration = 2;
                         res = await this.executeWithReAuth(api, token, blitz_req);
                     }
@@ -648,7 +665,7 @@ class CopyTradingLogic {
                 if (!res.error) {
                     const cid = res.buy.contract_id;
                     this.mirrored_local_ids.add(cid);
-                    this.addTrace(`Blitz Success 🏆 (... ${token.slice(-4)})`);
+                    this.addTrace(`Blitz Success ðŸ† (... ${token.slice(-4)})`);
                     
                     const latest = this.follower_balances.get(token);
                     if (latest) this.follower_balances.set(token, { ...latest, last_status: 'Trade Blitzed' });
@@ -656,12 +673,12 @@ class CopyTradingLogic {
                     setTimeout(() => api.send({ balance: 1 }), 5000);
                     setTimeout(() => this.mirrored_local_ids.delete(cid), 60000);
                 } else {
-                    console.error(`[CopyTrading] ❌ Blitz failed: ${res.error.message}`);
+                    console.error(`[CopyTrading] âŒ Blitz failed: ${res.error.message}`);
                     const latest = this.follower_balances.get(token);
                     if (latest) this.follower_balances.set(token, { ...latest, last_status: `Err: ${res.error.message.substring(0,10)}` });
                 }
             } catch (err) {
-                console.error(`[CopyTrading] 💥 Blitz Exception:`, err);
+                console.error(`[CopyTrading] ðŸ’¥ Blitz Exception:`, err);
             }
         });
 
@@ -743,13 +760,19 @@ class CopyTradingLogic {
             return;
         }
 
-        // PREVENTION: Don't broadcast if this contract was created by the engine (mirror)
+        // PREVENTION 1: Don't broadcast if this contract was created by the engine (mirror)
         if (this.mirrored_local_ids.has(tradeData.contract_id)) {
-            console.log(`[NetworkSync] 🚫 Self-broadcast prevention for ${tradeData.contract_id}`);
+            console.log(`[NetworkSync] 🚫 Self-trade prevention: Found ${tradeData.contract_id} in mirrored_local_ids`);
             return;
         }
 
-        // ✅ Stamp master_account BEFORE executing locally so source-skip guard works
+        // ✅ PREVENTION 2: Echo-Stop Handshake. Skip if this master trade was already handled proactively.
+        if (this.blitized_master_contract_ids.has(tradeData.contract_id)) {
+            console.log(`[NetworkSync] ✋ Echo-Stop: Skipping Reactive signal for ${tradeData.contract_id} (Already blitized proactively)`);
+            return;
+        }
+
+        // Stamp master_account BEFORE executing locally so source-skip guard works
         const master_loginid = this.active_api?.account_info?.loginid
             || localStorage.getItem('active_loginid')
             || localStorage.getItem('client.loginid')
@@ -759,22 +782,17 @@ class CopyTradingLogic {
 
         console.log(`[NetworkSync] 📡 Broadcasting trade: ${tradeData.contract_type} ${tradeData.symbol} | Master: ${master_loginid}`);
 
-        // ⚡ Execute locally IMMEDIATELY — don't wait for Firestore
+        // Execute Locally IMMEDIATELY — don't wait for Firestore (Zero-Latency)
         this.handleSignal(enrichedSignal);
 
-        // 📊 Write to Firestore asynchronously for remote follower sync
+        // Background persistence
         try {
-            const cleanData = Object.fromEntries(
-                Object.entries(enrichedSignal).filter(([_, v]) => v !== undefined && v !== null)
-            );
-            const signalsRef = collection(db, 'realtime_copy_signals');
-            await addDoc(signalsRef, {
-                ...cleanData,
+            await addDoc(collection(db, 'trades'), {
+                ...enrichedSignal,
                 timestamp: serverTimestamp(),
-                master_account: master_loginid
             });
         } catch (e) {
-            console.error('[NetworkSync] Firestore broadcast error:', e);
+            console.error('[NetworkSync] Firestore persistence failed:', e);
         }
     }
 
