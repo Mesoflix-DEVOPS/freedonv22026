@@ -164,46 +164,74 @@ class CopyTradingLogic {
         localStorage.setItem('deriv_paused_tokens', JSON.stringify([...this.paused_tokens]));
     }
 
+    private async executeWithTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+        let timeoutHandle: any;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(() => {
+            clearTimeout(timeoutHandle);
+        });
+    }
+
     /**
-     * Authorized all followers in the background. 
-     * Used on startup or when shifting into Mirror Mode.
+     * Initializes API connections and authorizations for all followers.
+     * Sequential loop with timeouts to prevent 'Boot-Lock' and browser WebSocket limits.
      */
     async initAuthorizedSession() {
         if (this.follower_tokens.length === 0) return;
         
-        console.log(`[Multi-Auth Network] 🔐 Syncing authorizations for ${this.follower_tokens.length} followers...`);
-        const authPromises = this.follower_tokens.map(async (token) => {
+        console.log(`[Multi-Auth Network] 🔐 Sequential Sync for ${this.follower_tokens.length} followers...`);
+        
+        for (const token of this.follower_tokens) {
             try {
                 let api = this.follower_apis.get(token);
+                const tokenSnippet = `...${token.slice(-4)}`;
+                
+                // Set initial placeholder status
+                if (!this.follower_balances.has(token)) {
+                    this.follower_balances.set(token, {
+                        balance: 0,
+                        currency: '...',
+                        loginid: 'Waiting',
+                        last_status: 'Booting...',
+                        last_sync: '-'
+                    });
+                } else {
+                    const existing = this.follower_balances.get(token)!;
+                    this.follower_balances.set(token, { ...existing, last_status: 'Connecting...' });
+                }
+
                 if (!api || !api.send) {
                     api = generateDerivApiInstance() as any;
                     this.follower_apis.set(token, api);
                     
-                    // PROACTIVE RE-AUTH ON OPEN
+                    // Proactive Re-auth on socket-open
                     const socket = api.connection;
                     if (socket) {
                         socket.onopen = async () => {
-                            console.log(`[NetworkSync] 🔄 Socket Reconnected for ...${token.slice(-4)}, Re-authorizing...`);
+                            console.log(`[NetworkSync] 🔄 Re-auth hook triggered for ${tokenSnippet}`);
                             try {
-                                const res = await api.authorize(token);
+                                const res = await this.executeWithTimeout(api.authorize(token), 10000, 'Re-auth Timeout');
                                 api.is_authorised = true;
                                 api.account_info = res.authorize;
-                                console.log(`[NetworkSync] ✅ Re-auth Success for ...${token.slice(-4)}`);
                             } catch (e) {
                                 api.is_authorised = false;
-                                console.error(`[NetworkSync] ❌ Re-auth Failed for ...${token.slice(-4)}`, e);
                             }
                         };
                     }
                 }
 
-                // Initial Auth
-                const res = await api.authorize(token);
+                // Sequential Auth with 15s Timeout
+                console.log(`[NetworkSync] 🛰️ Connecting to ...${token.slice(-4)}`);
+                const res = await this.executeWithTimeout(api.authorize(token), 15000, 'Auth Timeout');
+                
                 api.is_authorised = true;
                 api.account_info = res.authorize;
                 
                 // Fetch initial balance
-                const balRes = await api.send({ balance: 1 });
+                const balRes = await this.executeWithTimeout(api.send({ balance: 1 }), 5000, 'Balance Timeout');
                 if (balRes.balance) {
                     this.follower_balances.set(token, {
                         balance: balRes.balance.balance,
@@ -215,15 +243,21 @@ class CopyTradingLogic {
                 }
                 
                 this.subscribeToFollowerTrades(token, api);
-                console.log(`[NetworkSync] ✅ Follower ...${token.slice(-4)} Ready: ${res.authorize.loginid}`);
-            } catch (e) {
-                console.error(`[NetworkSync] ❌ Follower ...${token.slice(-4)} Init Failed`, e);
+                console.log(`[NetworkSync] ✅ Follower ${tokenSnippet} Ready: ${res.authorize.loginid}`);
+
+            } catch (e: any) {
+                const tokenSnippet = `...${token.slice(-4)}`;
+                console.warn(`[NetworkSync] ⚠️ Follower ${tokenSnippet} skipped:`, e.message || e);
+                
                 const existing = this.follower_balances.get(token);
-                if (existing) this.follower_balances.set(token, { ...existing, last_status: 'Auth Failed' });
+                if (existing) {
+                    this.follower_balances.set(token, { 
+                        ...existing, 
+                        last_status: e.message === 'Auth Timeout' ? 'Timed Out' : 'Failed' 
+                    });
+                }
             }
-        });
-        
-        await Promise.all(authPromises);
+        }
         
         if (this.is_sync_active && !this.balance_timer) {
             this.startBalanceLoop();
