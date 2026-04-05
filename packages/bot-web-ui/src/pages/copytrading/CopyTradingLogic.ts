@@ -663,7 +663,22 @@ class CopyTradingLogic {
                     proposal_req.barrier2 = barrier2;
                 }
 
-                const proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                let proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                
+                // ✅ SMART CORRECTION: If follower account requires more ticks (e.g., 5 min), auto-adjust and retry
+                if (proposal_res.error?.code === 'OfferingsValidationError' && duration_unit === 't') {
+                    const msg = proposal_res.error.message || '';
+                    if (msg.includes('between 5 and 10') || msg.includes('at least 5')) {
+                        console.warn(`[CopyTrading] ⚠️ Duration ${duration}t is too short for ...${token.slice(-4)}. Auto-correcting to 5t.`);
+                        proposal_req.duration = Math.max(5, proposal_req.duration);
+                        proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                    } else if (msg.includes('at least 2')) {
+                        console.warn(`[CopyTrading] ⚠️ Duration ${duration}t is too short for ...${token.slice(-4)}. Auto-correcting to 2t.`);
+                        proposal_req.duration = Math.max(2, proposal_req.duration);
+                        proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                    }
+                }
+
                 if (proposal_res.error) {
                     const err_msg = proposal_res.error.message || 'Proposal failed';
                     console.error(`[CopyTrading] ❌ Proposal failed (${token.substring(0,4)}): ${err_msg}`);
