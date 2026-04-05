@@ -171,15 +171,35 @@ class CopyTradingLogic {
     async initAuthorizedSession() {
         if (this.follower_tokens.length === 0) return;
         
-        console.log(`[CopyTrading] 🔐 Authorizing ${this.follower_tokens.length} followers...`);
+        console.log(`[Multi-Auth Network] 🔐 Syncing authorizations for ${this.follower_tokens.length} followers...`);
         const authPromises = this.follower_tokens.map(async (token) => {
             try {
                 let api = this.follower_apis.get(token);
                 if (!api || !api.send) {
                     api = generateDerivApiInstance() as any;
                     this.follower_apis.set(token, api);
+                    
+                    // PROACTIVE RE-AUTH ON OPEN
+                    const socket = api.connection;
+                    if (socket) {
+                        socket.onopen = async () => {
+                            console.log(`[NetworkSync] 🔄 Socket Reconnected for ...${token.slice(-4)}, Re-authorizing...`);
+                            try {
+                                const res = await api.authorize(token);
+                                api.is_authorised = true;
+                                api.account_info = res.authorize;
+                                console.log(`[NetworkSync] ✅ Re-auth Success for ...${token.slice(-4)}`);
+                            } catch (e) {
+                                api.is_authorised = false;
+                                console.error(`[NetworkSync] ❌ Re-auth Failed for ...${token.slice(-4)}`, e);
+                            }
+                        };
+                    }
                 }
+
+                // Initial Auth
                 const res = await api.authorize(token);
+                api.is_authorised = true;
                 api.account_info = res.authorize;
                 
                 // Fetch initial balance
@@ -189,19 +209,20 @@ class CopyTradingLogic {
                         balance: balRes.balance.balance,
                         currency: balRes.balance.currency,
                         loginid: res.authorize.loginid,
-                        last_status: 'Connected',
+                        last_status: 'Ready',
                         last_sync: new Date().toLocaleTimeString()
                     });
                 }
                 
-                // Track live trades for this follower
                 this.subscribeToFollowerTrades(token, api);
-                
-                console.log(`[CopyTrading] ✅ Follower ${token.substring(0, 4)} Ready: ${res.authorize.loginid}`);
+                console.log(`[NetworkSync] ✅ Follower ...${token.slice(-4)} Ready: ${res.authorize.loginid}`);
             } catch (e) {
-                console.error(`[CopyTrading] ❌ Follower ${token.substring(0, 4)} Auth Failed`, e);
+                console.error(`[NetworkSync] ❌ Follower ...${token.slice(-4)} Init Failed`, e);
+                const existing = this.follower_balances.get(token);
+                if (existing) this.follower_balances.set(token, { ...existing, last_status: 'Auth Failed' });
             }
         });
+        
         await Promise.all(authPromises);
         
         if (this.is_sync_active && !this.balance_timer) {
@@ -348,8 +369,18 @@ class CopyTradingLogic {
         this.follower_apis.forEach(async (api, token) => {
             try {
                 if (!api || typeof api.send !== 'function') return;
-                // Send balance request (sub should handle the rest)
-                api.send({ balance: 1 });
+                
+                // Use executeWithReAuth for balances to trigger background re-auth if needed,
+                // but for BALANCES we don't care about the 1-second delay.
+                const res = await api.send({ balance: 1 });
+                if (res.error?.code === 'AuthorizationRequired') {
+                   console.warn(`[NetworkSync] Background auth lost for ...${token.slice(-4)}, triggering re-auth.`);
+                   api.is_authorised = false;
+                   api.authorize(token).then((r: any) => {
+                       api.is_authorised = true;
+                       api.account_info = r.authorize;
+                   }).catch(() => { api.is_authorised = false; });
+                }
             } catch (e) {}
         });
     }
@@ -464,6 +495,12 @@ class CopyTradingLogic {
                 // SKIP IF SOURCE
                 if (tradeData.master_account === api.account_info?.loginid) {
                     console.log(`[NetworkSync] Skipping source account: ${tradeData.master_account}`);
+                    return;
+                }
+                // SKIP IF NOT AUTHORIZED (Prevent laggy/different outcomes)
+                if (!api.is_authorised) {
+                    console.error(`[Multi-Auth Network] ❌ Trade SKIPPED for ...${token.slice(-4)}: Session not ready.`);
+                    this.addTrace(`Trade Skipped: ...${token.slice(-4)} (Auth Required)`);
                     return;
                 }
 
