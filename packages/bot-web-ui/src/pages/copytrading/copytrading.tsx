@@ -11,7 +11,6 @@ interface ClientStore {
 }
 
 const MirrorHub: React.FC = observer(() => {
-    const { client } = useStore() as { client: ClientStore };
     
     // UI State
     const [newToken, setNewToken] = useState<string>('');
@@ -229,15 +228,6 @@ const MirrorHub: React.FC = observer(() => {
         if (window.confirm('Remove this account from the network?')) {
             copy_trading_logic.removeFollower(token);
             setToast({ text: 'Account removed', type: 'info' });
-        }
-    };
-
-    const masterDisplay = status.master_balance || {
-        loginid: client.loginid || 'Offline',
-        balance: client.loginid ? 'Current Session' : 'Ready',
-        currency: '',
-        last_sync: 'Static'
-    };
 
     return (
         <div className="engine-container">

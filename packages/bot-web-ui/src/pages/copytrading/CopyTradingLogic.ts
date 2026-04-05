@@ -164,8 +164,6 @@ class CopyTradingLogic {
             }
         });
         await Promise.all(authPromises);
-
-        }
         
         if (this.is_sync_active && !this.balance_timer) {
             this.startBalanceLoop();
