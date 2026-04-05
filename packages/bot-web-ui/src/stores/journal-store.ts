@@ -1,4 +1,4 @@
-import { action, computed, makeObservable, observable, reaction, when } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, when, runInAction } from 'mobx';
 import { LogTypes, MessageTypes } from '@deriv/bot-skeleton';
 import { config } from '@deriv/bot-skeleton/src/constants/config';
 import { formatDate } from '@deriv/shared';
@@ -240,12 +240,15 @@ export default class JournalStore {
                     const has_account = client.account_list?.find(account => account.loginid === loginid)?.title;
                     return !!has_account;
                 });
-                this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
-                if (this.unfiltered_messages.length === 0) {
-                    this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
-                } else if (this.unfiltered_messages.length > 0) {
-                    this.pushMessage(LogTypes.WELCOME_BACK, MessageTypes.SUCCESS, 'journal__text');
-                }
+                
+                runInAction(() => {
+                    this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
+                    if (this.unfiltered_messages.length === 0) {
+                        this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
+                    } else if (this.unfiltered_messages.length > 0) {
+                        this.pushMessage(LogTypes.WELCOME_BACK, MessageTypes.SUCCESS, 'journal__text');
+                    }
+                });
             },
             { fireImmediately: true } // For initial welcome message
         );

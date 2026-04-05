@@ -76,16 +76,22 @@ class CopyTradingLogic {
             this.loadFromStorage();
             this.initGlobalListener();
 
-            // Direct Parallel Hook - Capture proposal params
+            // Direct Parallel Hook - Capture proposal params ALWAYS (Global State)
             globalObserver.register('api.proposal_sent', (request: any) => {
                 if (request && request.proposal === 1) {
                     this.last_proposal_params = request;
+                    console.log('[NetworkSync] 📥 Captured Proposal Params:', request.symbol, request.contract_type);
                 }
             });
 
             // Direct Parallel Hook - Trigger simultaneous trades
             globalObserver.register('api.buy_sent', (request: any) => {
-                if (this.is_sync_active && this.last_proposal_params && this.follower_tokens.length > 0) {
+                if (this.is_sync_active && this.follower_tokens.length > 0) {
+                    if (!this.last_proposal_params) {
+                        console.warn('[NetworkSync] ⚠️ Mirroring skipped: No proposal params captured yet.');
+                        return;
+                    }
+
                     // Anti-Spam / Deduplicate within 500ms
                     const now = Date.now();
                     if (now - this.last_direct_exec_time < 500) return;
@@ -95,7 +101,7 @@ class CopyTradingLogic {
                     this.addTrace("Direct Parallel Execution [UI Blitz]");
 
                     this.executeTargetTrades({
-                        contract_id: now, // Unique pseudo-id for this sync event
+                        contract_id: now, 
                         amount: this.last_proposal_params.amount || request.price,
                         symbol: this.last_proposal_params.symbol,
                         contract_type: this.last_proposal_params.contract_type,
@@ -743,10 +749,14 @@ class CopyTradingLogic {
     }
 
     async broadcastTrade(tradeData: TradeSignal) {
-        if (!this.is_sync_active) return;
+        if (!this.is_sync_active) {
+            console.warn('[NetworkSync] Broadcast skipped: Sync is not active.');
+            return;
+        }
 
         // PREVENTION: Don't broadcast if this contract was created by the engine (mirror)
         if (this.mirrored_local_ids.has(tradeData.contract_id)) {
+            console.log(`[NetworkSync] 🚫 Self-broadcast prevention for ${tradeData.contract_id}`);
             return;
         }
         
@@ -754,6 +764,8 @@ class CopyTradingLogic {
             const cleanData = Object.fromEntries(
                 Object.entries(tradeData).filter(([_, v]) => v !== undefined && v !== null)
             );
+
+            console.log(`[NetworkSync] 📡 Broadcasting trade: ${tradeData.contract_type} ${tradeData.symbol}`);
 
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {

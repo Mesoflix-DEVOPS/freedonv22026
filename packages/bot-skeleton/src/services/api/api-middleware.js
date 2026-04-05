@@ -48,6 +48,7 @@ class APIMiddleware {
             performance.mark(`${req_type}_start`);
 
             if (req_type === 'proposal' || req_type === 'buy') {
+                console.log(`%c[Middleware] 📢 Emitting api.${req_type}_sent`, 'color: #9c27b0; font-weight: bold;');
                 globalObserver.emit(`api.${req_type}_sent`, request);
             }
         }
