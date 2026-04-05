@@ -227,7 +227,8 @@ const MirrorHub: React.FC = observer(() => {
     const removeAccount = (token: string) => {
         if (window.confirm('Remove this account from the network?')) {
             copy_trading_logic.removeFollower(token);
-            setToast({ text: 'Account removed', type: 'info' });
+        }
+    };
 
     return (
         <div className="engine-container">
