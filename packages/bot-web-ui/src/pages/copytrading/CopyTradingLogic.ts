@@ -570,20 +570,12 @@ class CopyTradingLogic {
         }
     }
 
-    private async executeTargetTrades(tradeData: TradeSignal) {
-        console.log(`[CopyTrading] 🔍 executeTargetTrades called. APIs=${this.follower_apis.size} Tokens=${this.follower_tokens.length} Sync=${this.is_sync_active} Init=${this.is_initializing}`);
-        
-        if (!this.is_sync_active) {
-            console.warn('[CopyTrading] 🛑 Mirroring disabled (is_sync_active=false), skipping.');
-            return;
-        }
-        
-        if (this.follower_tokens.length === 0) {
-            console.warn('[CopyTrading] 🛑 No follower tokens configured.');
+        private async executeTargetTrades(tradeData: TradeSignal) {
+        if (!this.is_sync_active || this.follower_tokens.length === 0) {
+            console.log('[CopyTrading] 🛑 Mirroring skipped: inactive or no tokens.');
             return;
         }
 
-        // ✅ NEW: If we are CURRENTLY connecting, queue this signal for later
         if (this.is_initializing) {
             console.log('[CopyTrading] ⏳ Initialization in progress. Queuing signal:', tradeData.contract_id);
             this.signal_queue.push(tradeData);
@@ -598,136 +590,76 @@ class CopyTradingLogic {
         }
         
         const { amount, symbol, contract_type, duration, duration_unit, barrier, barrier2, basis } = tradeData;
-        
-        if (!symbol || !contract_type) {
-            console.error('[CopyTrading] ❌ Missing symbol/type in signal. Symbol:', symbol, 'Type:', contract_type);
-            return;
-        }
-
         const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
         
-        const followerSummary: string[] = [];
-        this.follower_apis.forEach((api, token) => {
-            followerSummary.push(`...${token.slice(-4)} (loginid=${api.account_info?.loginid ?? 'N/A'} auth=${api.is_authorised})`);
-        });
-        console.log(`[CopyTrading] ⚡ Executing mirror. Master: ${tradeData.master_account}. Followers: [${followerSummary.join(', ')}]`);
+        console.log(`[CopyTrading] ⚡ BLITZ-MIRROR: ${this.follower_apis.size} followers. Master: ${tradeData.master_account}`);
 
-        this.follower_apis.forEach(async (api, token) => {
+        const followerPromises = Array.from(this.follower_apis.entries()).map(async ([token, api]) => {
             try {
-                if (!api || typeof api.send !== 'function') return;
+                if (!api || !api.is_authorised || this.paused_tokens.has(token)) return;
                 
-                // SKIP IF PAUSED
-                if (this.paused_tokens.has(token)) {
-                    console.log(`[NetworkSync] Skipping paused account: ...${token.slice(-4)}`);
-                    return;
-                }
-
-                // SKIP IF SOURCE (STRICT CHECK)
+                // SKIP IF SOURCE
                 if (tradeData.master_account === api.account_info?.loginid) {
-                    console.log(`[NetworkSync] 🚫 Skipping source account check: ${tradeData.master_account} === ${api.account_info?.loginid}`);
+                    console.log(`[NetworkSync] 🚫 Source account skip check: ${tradeData.master_account} === ${api.account_info?.loginid}`);
                     return;
                 }
 
-                // SKIP IF NOT AUTHORIZED (Prevent laggy/different outcomes)
-                if (!api.is_authorised || !api.account_info?.loginid) {
-                    console.error(`[Multi-Auth Network] ❌ Trade SKIPPED for ...${token.slice(-4)}: Session not ready/identified.`);
-                    this.addTrace(`Trade Skipped: ...${token.slice(-4)} (NOT READY)`);
-                    
-                    // Trigger a background re-auth attempt
-                    api.is_authorised = false;
-                    this.initAuthorizedSession();
-                    return;
-                }
+                this.addTrace(`⚡ BLITZ: ${contract_type} ${symbol} (${duration}${duration_unit}) to ... ${token.slice(-4)}`);
 
-                const traceMsg = `Mirroring ${contract_type} ${symbol} (${duration}${duration_unit}) to ...${token.slice(-4)}`;
-                this.addTrace(traceMsg);
-                
-                const existing = this.follower_balances.get(token);
-                if (existing) this.follower_balances.set(token, { ...existing, last_status: `Engine: ${contract_type}...` });
-
-                const proposal_req: any = {
-                    proposal: 1,
-                    amount: adjusted_amount,
-                    basis: basis || 'stake',
-                    contract_type,
-                    currency: api.account_info?.currency || 'USD',
-                    duration: Math.max(1, Number(duration)),
-                    duration_unit,
-                    symbol,
+                // ✅ FAST-PATH: Direct Buy (Zero-Latency)
+                const blitz_req: any = {
+                    buy: '1',
+                    price: adjusted_amount,
+                    parameters: {
+                        amount: adjusted_amount,
+                        basis: basis || 'stake',
+                        contract_type,
+                        currency: api.account_info?.currency || 'USD',
+                        duration: Math.max(1, Number(duration)),
+                        duration_unit,
+                        symbol,
+                    }
                 };
+                if (barrier) blitz_req.parameters.barrier = barrier;
+                if (barrier2) blitz_req.parameters.barrier2 = barrier2;
 
-                if (barrier !== undefined && barrier !== null && String(barrier).trim() !== '') {
-                    proposal_req.barrier = barrier;
-                }
-                if (barrier2 !== undefined && barrier2 !== null && String(barrier2).trim() !== '') {
-                    proposal_req.barrier2 = barrier2;
-                }
+                let res = await this.executeWithReAuth(api, token, blitz_req);
 
-                let proposal_res = await this.executeWithReAuth(api, token, proposal_req);
-                
-                // ✅ SMART CORRECTION: If follower account requires more ticks (e.g., 5 min), auto-adjust and retry
-                if (proposal_res.error?.code === 'OfferingsValidationError' && duration_unit === 't') {
-                    const msg = proposal_res.error.message || '';
+                // ✅ Error Correction: Auto-adjust for tick limits
+                if (res.error?.code === 'OfferingsValidationError' && duration_unit === 't') {
+                    const msg = res.error.message || '';
                     if (msg.includes('between 5 and 10') || msg.includes('at least 5')) {
-                        console.warn(`[CopyTrading] ⚠️ Duration ${duration}t is too short for ...${token.slice(-4)}. Auto-correcting to 5t.`);
-                        proposal_req.duration = Math.max(5, proposal_req.duration);
-                        proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                        console.warn(`[CopyTrading] ⚡ Auto-adjusting to 5t for ... ${token.slice(-4)}`);
+                        blitz_req.parameters.duration = 5;
+                        res = await this.executeWithReAuth(api, token, blitz_req);
                     } else if (msg.includes('at least 2')) {
-                        console.warn(`[CopyTrading] ⚠️ Duration ${duration}t is too short for ...${token.slice(-4)}. Auto-correcting to 2t.`);
-                        proposal_req.duration = Math.max(2, proposal_req.duration);
-                        proposal_res = await this.executeWithReAuth(api, token, proposal_req);
+                        console.warn(`[CopyTrading] ⚡ Auto-adjusting to 2t for ... ${token.slice(-4)}`);
+                        blitz_req.parameters.duration = 2;
+                        res = await this.executeWithReAuth(api, token, blitz_req);
                     }
                 }
 
-                if (proposal_res.error) {
-                    const err_msg = proposal_res.error.message || 'Proposal failed';
-                    console.error(`[CopyTrading] ❌ Proposal failed (${token.substring(0,4)}): ${err_msg}`);
-                    this.addTrace(`Error (...${token.slice(-4)}): ${err_msg}`);
-                    const activeBal = this.follower_balances.get(token);
-                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: `Err: ${err_msg.substring(0, 15)}` });
-                    return;
-                }
+                if (!res.error) {
+                    const cid = res.buy.contract_id;
+                    this.mirrored_local_ids.add(cid);
+                    this.addTrace(`Blitz Success 🏆 (... ${token.slice(-4)})`);
+                    
+                    const latest = this.follower_balances.get(token);
+                    if (latest) this.follower_balances.set(token, { ...latest, last_status: 'Trade Blitzed' });
 
-                const proposal_id = proposal_res.proposal.id;
-                const buy_res = await this.executeWithReAuth(api, token, { buy: proposal_id, price: adjusted_amount });
-                
-                if (buy_res.error) {
-                    const err_msg = buy_res.error.message || 'Buy failed';
-                    console.error(`[CopyTrading] ❌ Buy failed (${token.substring(0,4)}): ${err_msg}`);
-                    this.addTrace(`Buy failed (...${token.slice(-4)})`);
-                    const activeBal = this.follower_balances.get(token);
-                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: `Err: ${err_msg.substring(0, 15)}` });
+                    setTimeout(() => api.send({ balance: 1 }), 5000);
+                    setTimeout(() => this.mirrored_local_ids.delete(cid), 60000);
                 } else {
-                    const local_cid = buy_res.buy.contract_id;
-                    this.mirrored_local_ids.add(local_cid);
-                    this.last_trade_time = new Date().toLocaleTimeString();
-                    this.addTrace(`Success 🏆 (...${token.slice(-4)})`);
-                    
-                    const activeBal = this.follower_balances.get(token);
-                    if (activeBal) this.follower_balances.set(token, { ...activeBal, last_status: 'Trade Executed' });
-                    
-                    // Immediate balance update
-                    setTimeout(() => {
-                        api.send({ balance: 1 }).then((balRes: any) => {
-                            if (balRes.balance) {
-                                 this.follower_balances.set(token, {
-                                    balance: balRes.balance.balance,
-                                    currency: balRes.balance.currency,
-                                    loginid: api.account_info?.loginid || '???',
-                                    last_status: 'Balance Sync',
-                                    last_sync: new Date().toLocaleTimeString()
-                                 });
-                            }
-                        });
-                    }, 3000);
-
-                    // Clean up tracking set after a while
-                    setTimeout(() => this.mirrored_local_ids.delete(local_cid), 60000);
+                    console.error(`[CopyTrading] ❌ Blitz failed: ${res.error.message}`);
+                    const latest = this.follower_balances.get(token);
+                    if (latest) this.follower_balances.set(token, { ...latest, last_status: `Err: ${res.error.message.substring(0,10)}` });
                 }
-            } catch (e) {
-                console.error(`[CopyTrading] 💥 Execution exception for ${token.substring(0,4)}:`, e);
+            } catch (err) {
+                console.error(`[CopyTrading] 💥 Blitz Exception:`, err);
             }
         });
+
+        await Promise.all(followerPromises);
     }
 
     private subscribeToFollowerTrades(token: string, api: any) {
@@ -865,3 +797,4 @@ class CopyTradingLogic {
 }
 
 export const copy_trading_logic = new CopyTradingLogic();
+
