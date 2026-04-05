@@ -385,25 +385,47 @@ class CopyTradingLogic {
         this.addTrace("Network Sync Stopped");
     }
 
-    private async executeWithReAuth(api: any, token: string, request: object) {
+    private async executeWithReAuth(api: any, token: string, request: any) {
+        const tokenSnippet = `...${token.slice(-4)}`;
+        const reqType = Object.keys(request)[0];
+        
+        console.group(`[Multi-Auth Network] 📤 Request to ${tokenSnippet}: ${reqType}`);
+        console.log('Payload:', JSON.stringify(request, null, 2));
+        console.groupEnd();
+
         try {
             let res = await api.send(request);
             
+            console.group(`[Multi-Auth Network] 📥 Response from ${tokenSnippet}: ${reqType}`);
+            if (res.error) {
+                console.error('Error:', res.error);
+            } else {
+                console.log('Success:', res[reqType] || res);
+            }
+            console.groupEnd();
+
             if (res.error?.code === 'AuthorizationRequired' || res.error?.code === 'InvalidToken') {
-                console.warn(`[CopyTrading] Follower ${token.substring(0,4)} needs re-auth...`);
+                console.warn(`[NetworkSync] 🔐 Token ${tokenSnippet} needs re-auth...`);
                 const authRes = await api.authorize(token);
                 api.account_info = authRes.authorize;
-                // Retry once
+                
+                console.log(`[NetworkSync] 🔄 Retrying ${reqType} for ${tokenSnippet}...`);
                 res = await api.send(request);
+                
+                console.group(`[Multi-Auth Network] 📥 Retry Response from ${tokenSnippet}: ${reqType}`);
+                console.log(res.error ? 'Retry Failed' : 'Retry Success', res);
+                console.groupEnd();
             }
             return res;
         } catch (e) {
-            console.error(`[CopyTrading] Request failed for ${token.substring(0,4)}:`, e);
+            console.error(`[Multi-Auth Network] 💥 Critical Failure for ${tokenSnippet}:`, e);
             return { error: { message: 'Network or internal error' } };
         }
     }
 
     private async executeTargetTrades(tradeData: TradeSignal) {
+        console.log(`[Multi-Auth Network] ⚡ Processing Trade Signal:`, tradeData);
+        
         if (!this.is_sync_active) {
             console.warn('[CopyTrading] Mirroring is disabled, skipping execution.');
             return;
