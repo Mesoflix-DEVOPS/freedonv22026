@@ -164,6 +164,36 @@ class CopyTradingLogic {
         localStorage.setItem('deriv_paused_tokens', JSON.stringify([...this.paused_tokens]));
     }
 
+    private async waitForSocketOpen(socket: WebSocket, timeoutMs: number): Promise<void> {
+        if (socket.readyState === 1) return Promise.resolve();
+        
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error('Connection Timeout'));
+            }, timeoutMs);
+
+            const onOpen = () => {
+                cleanup();
+                resolve();
+            };
+
+            const onError = (error: any) => {
+                cleanup();
+                reject(error);
+            };
+
+            const cleanup = () => {
+                clearTimeout(timeout);
+                socket.removeEventListener('open', onOpen);
+                socket.removeEventListener('error', onError);
+            };
+
+            socket.addEventListener('open', onOpen);
+            socket.addEventListener('error', onError);
+        });
+    }
+
     private async executeWithTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
         let timeoutHandle: any;
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -182,20 +212,20 @@ class CopyTradingLogic {
     async initAuthorizedSession() {
         if (this.follower_tokens.length === 0) return;
         
-        console.log(`[Multi-Auth Network] 🔐 Sequential Sync for ${this.follower_tokens.length} followers...`);
+        console.log(`[Multi-Auth Network] 🔐 Sequential Sync (V4) for ${this.follower_tokens.length} followers...`);
         
         for (const token of this.follower_tokens) {
+            const tokenSnippet = `...${token.slice(-4)}`;
             try {
                 let api = this.follower_apis.get(token);
-                const tokenSnippet = `...${token.slice(-4)}`;
                 
-                // Set initial placeholder status
+                // 1. Initialize placeholder status
                 if (!this.follower_balances.has(token)) {
                     this.follower_balances.set(token, {
                         balance: 0,
                         currency: '...',
                         loginid: 'Waiting',
-                        last_status: 'Booting...',
+                        last_status: 'Connecting...',
                         last_sync: '-'
                     });
                 } else {
@@ -206,54 +236,61 @@ class CopyTradingLogic {
                 if (!api || !api.send) {
                     api = generateDerivApiInstance() as any;
                     this.follower_apis.set(token, api);
-                    
-                    // Proactive Re-auth on socket-open
-                    const socket = api.connection;
-                    if (socket) {
-                        socket.onopen = async () => {
-                            console.log(`[NetworkSync] 🔄 Re-auth hook triggered for ${tokenSnippet}`);
-                            try {
-                                const res = await this.executeWithTimeout(api.authorize(token), 10000, 'Re-auth Timeout');
-                                api.is_authorised = true;
-                                api.account_info = res.authorize;
-                            } catch (e) {
-                                api.is_authorised = false;
-                            }
-                        };
-                    }
                 }
 
-                // Sequential Auth with 15s Timeout
-                console.log(`[NetworkSync] 🛰️ Connecting to ...${token.slice(-4)}`);
-                const res = await this.executeWithTimeout(api.authorize(token), 15000, 'Auth Timeout');
+                const socket = api.connection;
+                if (!socket) throw new Error('Socket Error');
+
+                // 2. PHASE 1: Connect with 10s timeout
+                if (socket.readyState !== 1) {
+                    console.log(`[NetworkSync] 🌐 Opening socket for ${tokenSnippet}...`);
+                    await this.waitForSocketOpen(socket, 10000);
+                    console.log(`[NetworkSync] ✅ Socket connected for ${tokenSnippet}`);
+                }
+
+                // 3. PHASE 2: Authorize with 10s timeout (Only if not already ready)
+                if (!api.is_authorised) {
+                    console.log(`[NetworkSync] 🔐 Handshaking with ${tokenSnippet}...`);
+                    const existing = this.follower_balances.get(token)!;
+                    this.follower_balances.set(token, { ...existing, last_status: 'Authorizing...' });
+                    
+                    const res = await this.executeWithTimeout(api.authorize(token), 10000, 'Auth Timeout');
+                    api.is_authorised = true;
+                    api.account_info = res.authorize;
+                    
+                    // Add re-auth hooks ONLY AFTER first successful boot
+                    socket.onopen = async () => {
+                        console.log(`[NetworkSync] 🔄 Proactive re-auth triggered for ${tokenSnippet}`);
+                        try {
+                            const r = await this.executeWithTimeout(api.authorize(token), 10000, 'Re-auth Timeout');
+                            api.is_authorised = true;
+                            api.account_info = r.authorize;
+                        } catch (e) { api.is_authorised = false; }
+                    };
+                }
                 
-                api.is_authorised = true;
-                api.account_info = res.authorize;
-                
-                // Fetch initial balance
-                const balRes = await this.executeWithTimeout(api.send({ balance: 1 }), 5000, 'Balance Timeout');
+                // 4. FINAL: Fetch Status
+                const balRes = await this.executeWithTimeout(api.send({ balance: 1 }), 5000, 'HealthCheck Failed');
                 if (balRes.balance) {
                     this.follower_balances.set(token, {
                         balance: balRes.balance.balance,
                         currency: balRes.balance.currency,
-                        loginid: res.authorize.loginid,
+                        loginid: api.account_info.loginid,
                         last_status: 'Ready',
                         last_sync: new Date().toLocaleTimeString()
                     });
                 }
                 
                 this.subscribeToFollowerTrades(token, api);
-                console.log(`[NetworkSync] ✅ Follower ${tokenSnippet} Ready: ${res.authorize.loginid}`);
+                console.log(`[NetworkSync] ⭐ Follower ${tokenSnippet} is READY.`);
 
             } catch (e: any) {
-                const tokenSnippet = `...${token.slice(-4)}`;
-                console.warn(`[NetworkSync] ⚠️ Follower ${tokenSnippet} skipped:`, e.message || e);
-                
+                console.error(`[NetworkSync] 🚫 Follower ${tokenSnippet} error:`, e.message || e);
                 const existing = this.follower_balances.get(token);
                 if (existing) {
                     this.follower_balances.set(token, { 
                         ...existing, 
-                        last_status: e.message === 'Auth Timeout' ? 'Timed Out' : 'Failed' 
+                        last_status: e.message === 'Connection Timeout' ? 'Conn Error' : 'Auth Error' 
                     });
                 }
             }
