@@ -1,4 +1,5 @@
 import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
+import { observer as globalObserver } from '@deriv/bot-skeleton/src/utils/observer';
 import { db } from './FirebaseConfig';
 import { 
     collection, 
@@ -66,10 +67,48 @@ class CopyTradingLogic {
     private unsubscribe_active: any = null;
     private engine_trace: string[] = [];
 
+    // Parallel Sync State
+    private last_proposal_params: any = null;
+    private last_direct_exec_time: number = 0;
+
     constructor() {
         if (typeof window !== 'undefined') {
             this.loadFromStorage();
             this.initGlobalListener();
+
+            // Direct Parallel Hook - Capture proposal params
+            globalObserver.register('api.proposal_sent', (request: any) => {
+                if (request && request.proposal === 1) {
+                    this.last_proposal_params = request;
+                }
+            });
+
+            // Direct Parallel Hook - Trigger simultaneous trades
+            globalObserver.register('api.buy_sent', (request: any) => {
+                if (this.is_sync_active && this.last_proposal_params && this.follower_tokens.length > 0) {
+                    // Anti-Spam / Deduplicate within 500ms
+                    const now = Date.now();
+                    if (now - this.last_direct_exec_time < 500) return;
+                    this.last_direct_exec_time = now;
+
+                    console.log('[NetworkSync] ⚡ DIRECT PARALLEL SIGNAL CAPTURED. Syncing across network...');
+                    this.addTrace("Direct Parallel Execution [UI Blitz]");
+
+                    this.executeTargetTrades({
+                        contract_id: now, // Unique pseudo-id for this sync event
+                        amount: this.last_proposal_params.amount || request.price,
+                        symbol: this.last_proposal_params.symbol,
+                        contract_type: this.last_proposal_params.contract_type,
+                        duration: this.last_proposal_params.duration,
+                        duration_unit: this.last_proposal_params.duration_unit,
+                        barrier: this.last_proposal_params.barrier,
+                        barrier2: this.last_proposal_params.barrier2,
+                        basis: this.last_proposal_params.basis || 'stake',
+                        master_account: 'ui_direct_sync'
+                    });
+                }
+            });
+
             // Auto-init session if network sync was saved as active
             if (this.is_sync_active && this.follower_tokens.length > 0) {
                 console.log('[NetworkSync] 🔄 Auto-initializing network sessions...');
@@ -276,50 +315,18 @@ class CopyTradingLogic {
     async startMirroring(activeApi?: any) {
         if (this.follower_tokens.length === 0) return { error: { message: 'No accounts authorized' } };
         
+    async startMirroring(activeApi?: any) {
+        if (this.follower_tokens.length === 0) return { error: { message: 'No accounts authorized' } };
+        
         try {
             this.is_sync_active = true;
             this.saveToStorage();
 
-            // 1. Initialize Network APIs
+            // 1. Initialize Network APIs for all followers
             await this.initAuthorizedSession();
 
-            // 2. Subscribe to Active UI Account's trades
-            if (activeApi && typeof activeApi.onMessage === 'function') {
-                this.active_api = activeApi;
-                if (this.unsubscribe_active) this.unsubscribe_active.unsubscribe();
-                
-                this.unsubscribe_active = this.active_api.onMessage().subscribe((response: any) => {
-                    const msg = response?.data || response;
-                    
-                    if (msg.msg_type === 'buy') {
-                        console.log('[NetworkSync] 🛒 UI Purchase detected:', msg.buy.contract_id);
-                    }
-
-                    if (msg.msg_type === 'proposal_open_contract') {
-                        const contract = msg.proposal_open_contract;
-                        if (contract && contract.is_sold === 0 && contract.status === 'open') {
-                             const isNew = this.last_mirrored_contract_id !== contract.contract_id;
-                             if (isNew) {
-                                this.addTrace(`Signal from UI: ${contract.contract_type} ${contract.underlying}`);
-                                this.broadcastTrade({
-                                    contract_id: contract.contract_id,
-                                    amount: contract.buy_price || contract.amount,
-                                    symbol: contract.underlying,
-                                    contract_type: contract.contract_type,
-                                    duration: contract.duration || (contract.date_expiry - (contract.date_start || Math.floor(Date.now()/1000))),
-                                    duration_unit: contract.duration_unit || 's',
-                                    barrier: contract.barrier,
-                                    barrier2: contract.barrier2,
-                                    basis: 'stake',
-                                    master_account: this.active_api?.account_info?.loginid || 'ui'
-                                });
-                             }
-                        }
-                    }
-                });
-
-                this.active_api.send({ proposal_open_contract: 1, subscribe: 1 });
-            }
+            // Note: We now use globalObserver hooks in the constructor for zero-latency parallel execution.
+            // This captures 'buy' commands as they are sent from the UI/Bot.
 
             this.addTrace("Multi-Account Network Online");
             this.startBalanceLoop();

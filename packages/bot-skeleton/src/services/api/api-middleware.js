@@ -1,3 +1,5 @@
+import { observer as globalObserver } from '../../utils/observer';
+
 export const REQUESTS = [
     'active_symbols',
     'authorize',
@@ -42,7 +44,13 @@ class APIMiddleware {
 
     sendIsCalled = ({ response_promise, args: [request] }) => {
         const req_type = this.getRequestType(request);
-        if (req_type) performance.mark(`${req_type}_start`);
+        if (req_type) {
+            performance.mark(`${req_type}_start`);
+
+            if (req_type === 'proposal' || req_type === 'buy') {
+                globalObserver.emit(`api.${req_type}_sent`, request);
+            }
+        }
         response_promise
             .then(res => {
                 const res_type = this.getRequestType(res);
