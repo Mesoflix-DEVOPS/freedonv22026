@@ -70,6 +70,8 @@ class CopyTradingLogic {
     // Parallel Sync State
     private last_proposal_params: any = null;
     private last_direct_exec_time: number = 0;
+    private signal_queue: TradeSignal[] = [];
+    private is_initializing: boolean = false;
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -216,8 +218,9 @@ class CopyTradingLogic {
      * Sequential loop with timeouts to prevent 'Boot-Lock' and browser WebSocket limits.
      */
     async initAuthorizedSession() {
-        if (this.follower_tokens.length === 0) return;
+        if (this.follower_tokens.length === 0 || this.is_initializing) return;
         
+        this.is_initializing = true;
         console.log(`[Multi-Auth Network] 🔐 Sequential Sync (V4) for ${this.follower_tokens.length} followers...`);
         
         for (const token of this.follower_tokens) {
@@ -240,7 +243,8 @@ class CopyTradingLogic {
                 }
 
                 if (!api || !api.send) {
-                    api = generateDerivApiInstance() as any;
+                    // ✅ Tagged as Follower and Supspressed to prevent loop/noise
+                    api = generateDerivApiInstance({ tag: 'Follower', suppress_emissions: true }) as any;
                     this.follower_apis.set(token, api);
                 }
 
@@ -315,9 +319,19 @@ class CopyTradingLogic {
             }
         }
         
+        this.is_initializing = false;
         if (this.is_sync_active && !this.balance_timer) {
             this.startBalanceLoop();
         }
+        this.processSignalQueue();
+    }
+
+    private processSignalQueue() {
+        if (this.signal_queue.length === 0) return;
+        console.log(`[CopyTrading] 📥 Processing ${this.signal_queue.length} queued signals...`);
+        const queue = [...this.signal_queue];
+        this.signal_queue = [];
+        queue.forEach(signal => this.executeTargetTrades(signal));
     }
 
     private initGlobalListener() {
@@ -503,13 +517,12 @@ class CopyTradingLogic {
             clearInterval(this.balance_timer);
             this.balance_timer = null;
         }
-        this.follower_apis.forEach(api => api.disconnect());
-        this.follower_apis.clear();
-        this.follower_balances.clear();
-        this.follower_trades.clear();
-        this.follower_subscriptions.forEach(sub => sub.unsubscribe());
-        this.follower_subscriptions.clear();
-        this.addTrace("Network Sync Stopped");
+        
+        // NO: We don't clear APIs here. We keep them alive to avoid re-auth delays on restart.
+        // this.follower_apis.forEach(api => api.disconnect());
+        // this.follower_apis.clear();
+        
+        this.addTrace("Network Sync Stopped (Sessions Kept Warm)");
     }
 
     private async executeWithReAuth(api: any, token: string, request: any) {
@@ -558,7 +571,7 @@ class CopyTradingLogic {
     }
 
     private async executeTargetTrades(tradeData: TradeSignal) {
-        console.log(`[Multi-Auth Network] ⚡ Processing Trade Signal Start:`, tradeData);
+        console.log(`[CopyTrading] 🔍 executeTargetTrades called. APIs=${this.follower_apis.size} Tokens=${this.follower_tokens.length} Sync=${this.is_sync_active} Init=${this.is_initializing}`);
         
         if (!this.is_sync_active) {
             console.warn('[CopyTrading] 🛑 Mirroring disabled (is_sync_active=false), skipping.');
@@ -570,13 +583,18 @@ class CopyTradingLogic {
             return;
         }
 
+        // ✅ NEW: If we are CURRENTLY connecting, queue this signal for later
+        if (this.is_initializing) {
+            console.log('[CopyTrading] ⏳ Initialization in progress. Queuing signal:', tradeData.contract_id);
+            this.signal_queue.push(tradeData);
+            return;
+        }
+
         if (this.follower_apis.size === 0) {
-            console.warn('[CopyTrading] 🛑 No active follower APIs. Re-initializing...');
-            await this.initAuthorizedSession();
-            if (this.follower_apis.size === 0) {
-                 console.error('[CopyTrading] 🛑 Still no APIs after re-init. Aborting.');
-                 return;
-            }
+            console.warn('[CopyTrading] 🛑 No active follower APIs. Queuing and re-initializing...');
+            this.signal_queue.push(tradeData);
+            this.initAuthorizedSession();
+            return;
         }
         
         const { amount, symbol, contract_type, duration, duration_unit, barrier, barrier2, basis } = tradeData;
@@ -588,7 +606,11 @@ class CopyTradingLogic {
 
         const adjusted_amount = Math.min(this.max_stake, Math.max(this.min_stake, amount || 0));
         
-        console.log(`[CopyTrading] ⚡ Executing mirror for ${this.follower_apis.size} followers...`);
+        const followerSummary: string[] = [];
+        this.follower_apis.forEach((api, token) => {
+            followerSummary.push(`...${token.slice(-4)} (loginid=${api.account_info?.loginid ?? 'N/A'} auth=${api.is_authorised})`);
+        });
+        console.log(`[CopyTrading] ⚡ Executing mirror. Master: ${tradeData.master_account}. Followers: [${followerSummary.join(', ')}]`);
 
         this.follower_apis.forEach(async (api, token) => {
             try {
@@ -600,15 +622,20 @@ class CopyTradingLogic {
                     return;
                 }
 
-                // SKIP IF SOURCE
+                // SKIP IF SOURCE (STRICT CHECK)
                 if (tradeData.master_account === api.account_info?.loginid) {
-                    console.log(`[NetworkSync] Skipping source account: ${tradeData.master_account}`);
+                    console.log(`[NetworkSync] 🚫 Skipping source account check: ${tradeData.master_account} === ${api.account_info?.loginid}`);
                     return;
                 }
+
                 // SKIP IF NOT AUTHORIZED (Prevent laggy/different outcomes)
-                if (!api.is_authorised) {
-                    console.error(`[Multi-Auth Network] ❌ Trade SKIPPED for ...${token.slice(-4)}: Session not ready.`);
-                    this.addTrace(`Trade Skipped: ...${token.slice(-4)} (Auth Required)`);
+                if (!api.is_authorised || !api.account_info?.loginid) {
+                    console.error(`[Multi-Auth Network] ❌ Trade SKIPPED for ...${token.slice(-4)}: Session not ready/identified.`);
+                    this.addTrace(`Trade Skipped: ...${token.slice(-4)} (NOT READY)`);
+                    
+                    // Trigger a background re-auth attempt
+                    api.is_authorised = false;
+                    this.initAuthorizedSession();
                     return;
                 }
 
@@ -768,25 +795,37 @@ class CopyTradingLogic {
             console.log(`[NetworkSync] 🚫 Self-broadcast prevention for ${tradeData.contract_id}`);
             return;
         }
-        
+
+        // ✅ Stamp master_account BEFORE executing locally so source-skip guard works
+        const master_loginid = this.active_api?.account_info?.loginid
+            || localStorage.getItem('active_loginid')
+            || localStorage.getItem('client.loginid')
+            || 'ui_master';
+
+        const enrichedSignal: TradeSignal = { ...tradeData, master_account: master_loginid };
+
+        console.log(`[NetworkSync] 📡 Broadcasting trade: ${tradeData.contract_type} ${tradeData.symbol} | Master: ${master_loginid}`);
+
+        // ⚡ Execute locally IMMEDIATELY — don't wait for Firestore
+        this.handleSignal(enrichedSignal);
+
+        // 📊 Write to Firestore asynchronously for remote follower sync
         try {
             const cleanData = Object.fromEntries(
-                Object.entries(tradeData).filter(([_, v]) => v !== undefined && v !== null)
+                Object.entries(enrichedSignal).filter(([_, v]) => v !== undefined && v !== null)
             );
-
-            console.log(`[NetworkSync] 📡 Broadcasting trade: ${tradeData.contract_type} ${tradeData.symbol}`);
-
             const signalsRef = collection(db, 'realtime_copy_signals');
             await addDoc(signalsRef, {
                 ...cleanData,
                 timestamp: serverTimestamp(),
-                master_account: this.active_api?.account_info?.loginid || localStorage.getItem('active_loginid') || 'active_ui'
+                master_account: master_loginid
             });
-            this.handleSignal(tradeData);
         } catch (e) {
-            console.error('[NetworkSync] Broadcast error:', e);
+            console.error('[NetworkSync] Firestore broadcast error:', e);
         }
     }
+
+
 
     private addTrace(msg: string) {
         const time = new Date().toLocaleTimeString();

@@ -649,6 +649,10 @@ export default class RunPanelStore {
             (data?.status === 'open' || data?.status === 'purchased' || !data?.status);
 
         if (isBuyEvent) {
+            // ✅ Dedup guard: only broadcast ONCE per contract_id
+            if ((this as any)._last_broadcast_cid === data.contract_id) return;
+            (this as any)._last_broadcast_cid = data.contract_id;
+
             const contract = data;
             const is_tick_trade = !!(contract.tick_count || contract.total_tick_count);
             

@@ -13,9 +13,11 @@ export const REQUESTS = [
 ];
 
 class APIMiddleware {
-    constructor(config) {
+    constructor(config = {}) {
         this.config = config;
         this.debounced_calls = {};
+        this.tag = config.tag || 'Master'; // 'Master' or 'Follower'
+        this.suppress_emissions = !!config.suppress_emissions;
     }
 
     getRequestType = request => {
@@ -47,8 +49,8 @@ class APIMiddleware {
         if (req_type) {
             performance.mark(`${req_type}_start`);
 
-            if (req_type === 'proposal' || req_type === 'buy') {
-                console.log(`%c[Middleware] 📢 Emitting api.${req_type}_sent`, 'color: #9c27b0; font-weight: bold;');
+            if ((req_type === 'proposal' || req_type === 'buy') && !this.suppress_emissions) {
+                console.log(`%c[${this.tag}-API] 📢 Emitting api.${req_type}_sent`, 'color: #9c27b0; font-weight: bold;', request);
                 globalObserver.emit(`api.${req_type}_sent`, request);
             }
         }
@@ -61,7 +63,7 @@ class APIMiddleware {
                     // Add global logging for critical trade/auth events
                     if (['buy', 'authorize', 'proposal_open_contract'].includes(res_type)) {
                         const style = 'background: #333; color: #03a9f4; font-weight: bold; padding: 1px 3px; border-radius: 2px;';
-                        console.log(`%c[Global-API] 📥 Response: ${res_type}`, style, res);
+                        console.log(`%c[${this.tag}-API] 📥 Response: ${res_type}`, style, res);
                     }
                 }
             })
