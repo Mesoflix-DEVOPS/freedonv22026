@@ -16,8 +16,6 @@ const MirrorHub: React.FC = observer(() => {
     // UI State
     const [newToken, setNewToken] = useState<string>('');
     const [status, setStatus] = useState(copy_trading_logic.getStatus());
-    const [masterTokenInput, setMasterTokenInput] = useState(status.master_token || '');
-    const [isUpdatingMaster, setIsUpdatingMaster] = useState(false);
     const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -31,12 +29,9 @@ const MirrorHub: React.FC = observer(() => {
         const timer = setInterval(() => {
             const currentStatus = copy_trading_logic.getStatus();
             setStatus(currentStatus);
-            if (currentStatus.master_token && !masterTokenInput) {
-                setMasterTokenInput(currentStatus.master_token);
-            }
         }, 2000);
         return () => clearInterval(timer);
-    }, [masterTokenInput]);
+    }, []);
 
     // Ensure session is initialized if mirroring is active
     useEffect(() => {
@@ -60,7 +55,8 @@ const MirrorHub: React.FC = observer(() => {
                 to   { transform: translateY(0);    opacity: 1; }
             }
             .engine-container {
-                min-height: 100vh;
+                height: 100vh;
+                overflow-y: auto;
                 background-color: #f8fafc;
                 font-family: 'Outfit', sans-serif;
                 padding: ${isMobile ? '20px 10px' : '40px 20px'};
@@ -201,16 +197,6 @@ const MirrorHub: React.FC = observer(() => {
         setIsProcessing(false);
     };
 
-    const handleUpdateMaster = async () => {
-        setIsUpdatingMaster(true);
-        const res = await copy_trading_logic.setMasterToken(masterTokenInput || null);
-        if (res.success) {
-            setToast({ type: 'ok', text: masterTokenInput ? `Master Authenticated: ${res.loginid}` : 'Using Current Session' });
-        } else {
-            setToast({ type: 'err', text: res.error || 'Master Auth Failed' });
-        }
-        setIsUpdatingMaster(false);
-    };
 
     const toggleNetwork = async () => {
         if (status.followers_count === 0) {
@@ -309,41 +295,27 @@ const MirrorHub: React.FC = observer(() => {
                     {/* Left side: Auth tokens & List */}
                     <div style={{ flex: '1.3' }}>
                         
-                        <div style={{ marginBottom: '30px', padding: '20px', background: '#f9fafb', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
-                            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 800 }}>Master Session Auth</h3>
-                            <p style={{ margin: '0 0 15px 0', fontSize: '12px', color: '#64748b' }}>
-                                Use active session or override with a specific master token.
-                            </p>
-                            <div style={{ display: 'flex', gap: '10px' }}>
+                        {/* Add New Tokens */}
+                        <div style={{ marginBottom: '25px', display: 'flex', gap: '10px' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                                    Network Authorization Token
+                                </label>
                                 <input 
                                     type="password" 
                                     className="qs-input" 
-                                    placeholder="Master API Token (Optional)"
-                                    value={masterTokenInput}
-                                    onChange={(e) => setMasterTokenInput(e.target.value)}
+                                    placeholder="Enter API Token..."
+                                    value={newToken}
+                                    onChange={(e) => setNewToken(e.target.value)}
                                 />
-                                <button className="btn-outline" style={{ fontSize: '12px', padding: '10px 15px' }} onClick={handleUpdateMaster} disabled={isUpdatingMaster}>
-                                    {isUpdatingMaster ? '...' : (masterTokenInput ? 'AUTH' : 'SESS')}
-                                </button>
                             </div>
-                        </div>
-
-                        {/* Add New Tokens */}
-                        <div style={{ marginBottom: '25px', display: 'flex', gap: '10px' }}>
-                            <input 
-                                type="password" 
-                                className="qs-input" 
-                                placeholder="Authorization Token"
-                                value={newToken}
-                                onChange={(e) => setNewToken(e.target.value)}
-                            />
-                            <button className="btn-primary" style={{ padding: '0 25px' }} onClick={handleAddFollower} disabled={isProcessing}>
-                                {isProcessing ? '...' : 'LINK'}
+                            <button className="btn-primary" style={{ padding: '0 35px', marginTop: '16px', height: '48px', minWidth: '120px' }} onClick={handleAddFollower} disabled={isProcessing}>
+                                {isProcessing ? 'AUTH...' : 'LINK TOKEN'}
                             </button>
                         </div>
 
                         {/* Token Connection List */}
-                        <div style={{ maxHeight: isMobile ? '400px' : 'auto', overflowY: isMobile ? 'auto' : 'visible' }}>
+                        <div style={{ overflowY: 'visible', paddingBottom: '40px' }}>
                             {status.tokens.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '30px', background: '#f9fafb', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
                                     <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>No accounts authorized yet.</p>
@@ -368,26 +340,33 @@ const MirrorHub: React.FC = observer(() => {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
                                                     <button 
-                                                        onClick={() => togglePause(token)}
+                                                        onClick={(e) => { e.stopPropagation(); togglePause(token); }}
                                                         title={isPaused ? "Resume syncing" : "Pause syncing"}
                                                         style={{ 
-                                                            border: 'none', background: isPaused ? '#f0fdf4' : '#f8fafc', 
-                                                            color: isPaused ? '#22c55e' : '#64748b',
-                                                            width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            border: 'none', 
+                                                            background: isPaused ? '#22c55e' : '#f8fafc', 
+                                                            color: isPaused ? '#fff' : '#64748b',
+                                                            width: '40px', height: '40px', borderRadius: '12px', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '18px', boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
+                                                            transition: 'all 0.2s'
                                                         }}
                                                     >
                                                         {isPaused ? '▶️' : '⏸️'}
                                                     </button>
                                                     <button 
-                                                        onClick={() => removeAccount(token)}
+                                                        onClick={(e) => { e.stopPropagation(); removeAccount(token); }}
                                                         title="Remove account"
                                                         style={{ 
-                                                            border: 'none', background: '#fff5f5', color: '#ff4d4f',
-                                                            width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            border: 'none', 
+                                                            background: '#fee2e2', 
+                                                            color: '#ef4444',
+                                                            width: '40px', height: '40px', borderRadius: '12px', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '18px', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.1)',
+                                                            transition: 'all 0.2s'
                                                         }}
                                                     >
                                                         🗑️
@@ -398,10 +377,16 @@ const MirrorHub: React.FC = observer(() => {
                                             <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
                                                 <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '12px' }}>
                                                     <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>Balance</div>
-                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
+                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         {bal?.balance !== undefined && bal?.balance !== null ? 
                                                             `${Number(bal.balance).toLocaleString()} ${bal.currency || ''}` : 
                                                             '---'}
+                                                        {!isPaused && (
+                                                            <div style={{ 
+                                                                width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e',
+                                                                boxShadow: '0 0 8px #22c55e', animation: 'fadeInUp 2s infinite'
+                                                            }} />
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
