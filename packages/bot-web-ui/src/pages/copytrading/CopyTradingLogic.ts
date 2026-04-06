@@ -1,4 +1,4 @@
-﻿import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
+import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
 import { observer as globalObserver } from '@deriv/bot-skeleton/src/utils/observer';
 import { db } from './FirebaseConfig';
 import { 
@@ -78,6 +78,7 @@ class CopyTradingLogic {
     private is_initializing: boolean = false;
     private proactive_req_ids: Set<number> = new Set();
     private blitized_master_contract_ids: Set<number> = new Set();
+    private firestore_blocked: boolean = false; // New: track Firestore blocking status
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -366,11 +367,16 @@ class CopyTradingLogic {
     }
 
     private initGlobalListener() {
+        if (typeof window !== 'undefined' && !db) {
+            console.error('[CopyTrading] ❌ Firebase DB not initialized.');
+            return;
+        }
+
         const signalsRef = collection(db, 'realtime_copy_signals');
         // Lenient 5-minute window to avoid missing signals due to clock drift
         const fiveMinutesAgo = new Date(Date.now() - 300000);
         
-        console.log('[CopyTrading] ðŸ“¡ Firestore listener active.');
+        console.log('[CopyTrading] 📡 Firestore listener active.');
 
         const q = query(
             signalsRef, 
@@ -380,13 +386,18 @@ class CopyTradingLogic {
         );
 
         this.unsubscribe_firestore = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+            if (this.firestore_blocked) {
+                console.info('[CopyTrading] ✅ Firestore connectivity restored.');
+                this.firestore_blocked = false;
+            }
+            
             if (!this.is_sync_active || this.follower_tokens.length === 0) return;
 
             snapshot.docChanges().forEach((change: DocumentChange<DocumentData>) => {
                 if (change.type === 'added') {
                     const signal = change.doc.data() as TradeSignal;
                     if (!this.processed_signal_ids.has(change.doc.id)) {
-                        console.log(`[CopyTrading] ðŸ“¥ Received signal via Network: ${signal.contract_type} ${signal.symbol} | Amount: ${signal.amount}`);
+                        console.log(`[CopyTrading] 📥 Received signal via Network: ${signal.contract_type} ${signal.symbol} | Amount: ${signal.amount}`);
                         this.handleSignal(signal);
                         this.processed_signal_ids.add(change.doc.id);
 
@@ -398,7 +409,14 @@ class CopyTradingLogic {
                 }
             });
         }, (error: FirestoreError) => {
-            console.error('[CopyTrading] Firestore sync error:', error);
+            if (error.code === 'failed-precondition' || error.message.includes('blocked by client') || error.message.includes('net::ERR_BLOCKED_BY_CLIENT')) {
+                if (!this.firestore_blocked) {
+                    console.error('[CopyTrading] 🛑 Firestore is BLOCKED BY CLIENT (likely an ad-blocker). Network Sync will be unavailable.');
+                    this.firestore_blocked = true;
+                }
+            } else {
+                console.error('[CopyTrading] Firestore sync error:', error.code, error.message);
+            }
         });
     }
 
@@ -607,9 +625,11 @@ class CopyTradingLogic {
                 console.groupEnd();
             }
             return res;
-        } catch (e) {
-            console.error(`%c[Multi-Auth Network] ðŸ’¥ Critical Failure for ${tokenSnippet}:`, err_style, e);
-            return { error: { message: 'Network or internal error' } };
+        } catch (e: any) {
+            const error_msg = e?.error?.message || e?.message || 'Network or internal error';
+            const error_code = e?.error?.code || e?.code || 'CriticalException';
+            console.error(`%c[Multi-Auth Network] 💥 Critical Failure for ${tokenSnippet}: ${error_code} | ${error_msg}`, err_style, e);
+            return { error: { message: error_msg, code: error_code } };
         }
     }
 
@@ -703,9 +723,9 @@ class CopyTradingLogic {
                     setTimeout(() => api.send({ balance: 1 }), 5000);
                     setTimeout(() => this.mirrored_local_ids.delete(cid), 60000);
                 } else {
-                    console.error(`[CopyTrading] âŒ Blitz failed: ${res.error.message}`);
+                    const error_msg = res.error?.message || "Unknown Error"; const error_code = res.error?.code || "UnknownCode"; console.error(`[CopyTrading] 🚫 Blitz failed for ...${token.slice(-4)}: ${error_code} | ${error_msg}`);
                     const latest = this.follower_balances.get(token);
-                    if (latest) this.follower_balances.set(token, { ...latest, last_status: `Err: ${res.error.message.substring(0,10)}` });
+                    if (latest) this.follower_balances.set(token, { ...latest, last_status: `Err: ${error_msg.substring(0,15)}` });
                 }
             } catch (err) {
                 console.error(`[CopyTrading] ðŸ’¥ Blitz Exception:`, err);
@@ -822,13 +842,15 @@ class CopyTradingLogic {
         this.handleSignal(enrichedSignal);
 
         // Background persistence
-        try {
-            await addDoc(collection(db, 'trades'), {
-                ...enrichedSignal,
-                timestamp: serverTimestamp(),
-            });
-        } catch (e) {
-            console.error('[NetworkSync] Firestore persistence failed:', e);
+        if (!this.firestore_blocked) {
+            try {
+                await addDoc(collection(db, 'trades'), {
+                    ...enrichedSignal,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (e) {
+                console.error('[NetworkSync] Firestore persistence failed:', e);
+            }
         }
     }
 
@@ -865,5 +887,6 @@ class CopyTradingLogic {
 }
 
 export const copy_trading_logic = new CopyTradingLogic();
+
 
 

@@ -74,7 +74,9 @@ class APIMiddleware {
             .catch(error => {
                 const req_type = this.getRequestType(request);
                 if (['buy', 'authorize', 'proposal_open_contract'].includes(req_type)) {
-                    console.error(`[Global-API] ❌ Request Failed: ${req_type}`, error);
+                    const error_msg = error?.error?.message || error?.message || 'Unknown Error';
+                    const error_code = error?.error?.code || error?.code || 'UnknownCode';
+                    console.error(`[Global-API] ❌ Request Failed: ${req_type} | ${error_code}: ${error_msg}`, error);
                 }
             });
         return response_promise;
