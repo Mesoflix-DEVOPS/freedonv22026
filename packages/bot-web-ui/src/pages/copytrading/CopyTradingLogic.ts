@@ -778,6 +778,12 @@ class CopyTradingLogic {
             || localStorage.getItem('client.loginid')
             || 'ui_master';
 
+        // ✅ Secondary Anti-Amplification: Don't broadcast if the master_account is actually a follower
+        if (this.isFollowerAccount(master_loginid)) {
+            console.log(`[NetworkSync] 🚫 Skipping broadcast: ${master_loginid} is a Follower.`);
+            return;
+        }
+
         const enrichedSignal: TradeSignal = { ...tradeData, master_account: master_loginid };
 
         console.log(`[NetworkSync] 📡 Broadcasting trade: ${tradeData.contract_type} ${tradeData.symbol} | Master: ${master_loginid}`);
@@ -817,6 +823,14 @@ class CopyTradingLogic {
             last_trade_time: this.last_trade_time,
             trace: this.engine_trace
         };
+    }
+
+    /**
+     * Checks if a given loginid is part of the follower network.
+     * Essential for preventing signal feedback loops.
+     */
+    isFollowerAccount(loginid: string): boolean {
+        return Array.from(this.follower_balances.values()).some(b => b.loginid === loginid);
     }
 }
 

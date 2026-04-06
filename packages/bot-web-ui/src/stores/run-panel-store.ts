@@ -649,6 +649,14 @@ export default class RunPanelStore {
             (data?.status === 'open' || data?.status === 'purchased' || !data?.status);
 
         if (isBuyEvent) {
+            // ✅ Anti-Amplification Guard: Never broadcast if the current active account is a Follower.
+            // This prevents the "Echo Loop" where a follower trade is re-broadcasted as a master signal.
+            const active_loginid = localStorage.getItem('active_loginid') || localStorage.getItem('client.loginid') || '';
+            if (copy_trading_logic.isFollowerAccount(active_loginid)) {
+                console.log(`[Mirror] 🚫 Skipping broadcast: ${active_loginid} is a Follower account.`);
+                return;
+            }
+
             // ✅ Dedup guard: only broadcast ONCE per contract_id
             if ((this as any)._last_broadcast_cid === data.contract_id) return;
             (this as any)._last_broadcast_cid = data.contract_id;
