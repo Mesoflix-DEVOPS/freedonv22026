@@ -1,4 +1,4 @@
-import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
+﻿import { generateDerivApiInstance } from '@deriv/bot-skeleton/src/services/api/appId';
 import { observer as globalObserver } from '@deriv/bot-skeleton/src/utils/observer';
 import { db } from './FirebaseConfig';
 import { 
@@ -57,6 +57,10 @@ class CopyTradingLogic {
     private last_mirrored_contract_id: number | null = null;
     private processed_signal_ids: Set<string> = new Set();
     private mirrored_local_ids: Set<number> = new Set();
+    
+    // NEW: Unified deduplication for all master signal sources (Proactive/Reactive/Network)
+    private processed_master_ids: Set<string | number> = new Set();
+    private account_symbol_cooldowns: Map<string, number> = new Map(); // token-symbol -> timestamp
 
     private max_stake: number = 100;
     private min_stake: number = 0.35;
@@ -130,12 +134,16 @@ class CopyTradingLogic {
                     const req_id = res.echo_req.req_id;
                     const contract_id = res.buy.contract_id;
 
-                    if (this.proactive_req_ids.has(req_id)) {
-                        console.log(`[NetworkSync] ðŸ¤ Handshake: Marked Master CID ${contract_id} as PROACTIVELY blitized.`);
+                    if (this.proactive_req_ids.has(req_id) || this.processed_master_ids.has(req_id)) {
+                        console.log(`[NetworkSync] Handshake: Linked Req ${req_id} -> CID ${contract_id}`);
                         this.blitized_master_contract_ids.add(contract_id);
+                        this.processed_master_ids.add(contract_id);
                         
                         // Cleanup after 2 minutes
-                        setTimeout(() => this.blitized_master_contract_ids.delete(contract_id), 120000);
+                        setTimeout(() => {
+                            this.blitized_master_contract_ids.delete(contract_id);
+                            this.processed_master_ids.delete(contract_id);
+                        }, 120000);
                     }
                 }
             });
@@ -395,14 +403,26 @@ class CopyTradingLogic {
     }
 
     private handleSignal(tradeData: TradeSignal) {
-        console.log(`[NetworkSync] ðŸ” handleSignal called for CID: ${tradeData.contract_id}. Last: ${this.last_mirrored_contract_id}`);
-        if (tradeData.contract_id !== this.last_mirrored_contract_id) {
-            console.log('[NetworkSync] ðŸš€ handleSignal -> executeTargetTrades');
+        const master_id = tradeData.contract_id;
+        
+        if (!master_id) {
+            console.warn('[NetworkSync] Signal missing contract_id, using temporal fallback');
             this.executeTargetTrades(tradeData);
-            this.last_mirrored_contract_id = tradeData.contract_id;
-        } else {
-            console.log('[NetworkSync] â­ï¸ handleSignal skipped (Dupe CID)');
+            return;
         }
+
+        if (this.processed_master_ids.has(master_id)) {
+            console.log(`[NetworkSync] Skipping duplicate signal for Master CID ${master_id}`);
+            return;
+        }
+
+        console.log(`[NetworkSync] Processing Signal for CID: ${master_id}`);
+        this.processed_master_ids.add(master_id);
+        
+        // CID Cooldown: Clear after 1 minute
+        setTimeout(() => this.processed_master_ids.delete(master_id), 60000);
+        
+        this.executeTargetTrades(tradeData);
     }
 
     // --- Follower Management ---
@@ -629,7 +649,17 @@ class CopyTradingLogic {
 
                 this.addTrace(`âš¡ BLITZ: ${contract_type} ${symbol} (${duration}${duration_unit}) to ... ${token.slice(-4)}`);
 
-                // âœ… FAST-PATH: Direct Buy (Zero-Latency)
+                // ✅ COOLDOWN GUARD: Prevent multiple trades for same symbol within 2 seconds per follower
+                const cooldownKey = `${token}-${symbol}`;
+                const now = Date.now();
+                const lastTrade = this.account_symbol_cooldowns.get(cooldownKey) || 0;
+                if (now - lastTrade < 2000) {
+                    console.warn(`[NetworkSync] 🛑 Cooldown active for ${symbol} on ...${token.slice(-4)}. Skipping.`);
+                    return;
+                }
+                this.account_symbol_cooldowns.set(cooldownKey, now);
+
+                // ✅ FAST-PATH: Direct Buy (Zero-Latency)
                 const blitz_req: any = {
                     buy: '1',
                     price: adjusted_amount,
@@ -835,4 +865,5 @@ class CopyTradingLogic {
 }
 
 export const copy_trading_logic = new CopyTradingLogic();
+
 

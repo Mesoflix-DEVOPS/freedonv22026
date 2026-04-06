@@ -84,13 +84,14 @@ class TradingLogic {
                 throw buy_res.error;
             }
 
-            // Broadcast trade for Manual Mirroring
+            const contract_id = buy_res.buy.contract_id;
+
+            // Broadcast trade after successful buy with CID
             copy_trading_logic.broadcastTrade({
                 ...cleanedParams,
+                contract_id,
                 amount: ask_price || cleanedParams.amount
             });
-
-            const contract_id = buy_res.buy.contract_id;
 
             // 3. Monitor until resolved
             return new Promise<TradeResult>((resolve, reject) => {
