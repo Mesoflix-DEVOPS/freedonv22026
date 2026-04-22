@@ -12,7 +12,7 @@ import styles from './botlist.module.scss';
    ============================================================ */
 const WHATSAPP_NUMBER = '254793632071';
 const WHATSAPP_MSG = encodeURIComponent(
-    "Hi! I'm ready to upgrade my trading with the 💰📊 Apex AI 2026 🤖💹 Bot. I've seen the 96% accuracy and want to purchase it for $1,000. Please guide me on the next steps to start winning today!"
+    "Hi! I want the 💰📊 Apex AI 2026 🤖💹 Bot. I’m ready to pay $1,000 now—where do I send the money and how will I receive it from you?"
 );
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`;
 
