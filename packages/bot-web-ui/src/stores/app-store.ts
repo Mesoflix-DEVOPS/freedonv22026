@@ -301,7 +301,9 @@ export default class AppStore {
                     }
                     DBot.initializeInterpreter();
                     const { observer: globalObserver } = DBot;
-                    globalObserver.emit('client.switch_account', client.loginid);
+                    if (globalObserver && typeof globalObserver.emit === 'function') {
+                        globalObserver.emit('client.switch_account', client.loginid);
+                    }
                 }
             }
         );

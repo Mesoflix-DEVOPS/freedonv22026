@@ -114,51 +114,57 @@ export const StatisticsSummary = ({
 
 const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onClearStatClick }: TDrawerHeader) => {
     const [isMirroring, setIsMirroring] = React.useState(false);
+    const [activeFollowers, setActiveFollowers] = React.useState(0);
     
     React.useEffect(() => {
         const timer = setInterval(() => {
-            setIsMirroring(copy_trading_logic.getStatus().is_mirroring);
+            const status = copy_trading_logic.getStatus();
+            setIsMirroring(status.is_mirroring);
+            setActiveFollowers(status.active_followers);
         }, 2000);
         return () => clearInterval(timer);
     }, []);
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 16px' }}>
-            {copy_trading_logic.getStatus().is_mirroring && (
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            width: '100%', 
+            padding: '4px 16px',
+            minHeight: '40px'
+        }}>
+            {isMirroring && (
                 <div style={{
-                    marginTop: '15px',
-                    padding: '10px 15px',
-                    background: '#0f172a',
-                    borderRadius: '12px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    border: '1px solid #1e293b'
+                    gap: '6px',
+                    padding: '2px 8px',
+                    background: 'rgba(15, 23, 42, 0.6)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(30, 41, 59, 0.5)'
                 }}>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ 
-                            width: '8px', height: '8px', borderRadius: '50%', 
-                            background: '#38bdf8', boxShadow: '0 0 10px #38bdf8' 
-                        }} />
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#f8fafc' }}>
-                            NETWORK SYNC LIVE
-                        </span>
-                     </div>
-                     <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>
-                        {copy_trading_logic.getStatus().active_followers} Accounts Active
-                     </span>
+                    <div style={{ 
+                        width: '6px', height: '6px', borderRadius: '50%', 
+                        background: '#38bdf8', boxShadow: '0 0 8px #38bdf8' 
+                    }} />
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                        SYNC: {activeFollowers}
+                    </span>
                 </div>
             )}
-            {is_mobile && is_drawer_open && (
-                <Button
-                    id='db-run-panel__clear-button'
-                    className='run-panel__clear-button'
-                    is_disabled={is_clear_stat_disabled}
-                    text={localize('Reset')}
-                    onClick={onClearStatClick}
-                    secondary
-                />
-            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                {is_mobile && is_drawer_open && (
+                    <Button
+                        id='db-run-panel__clear-button'
+                        className='run-panel__clear-button'
+                        is_disabled={is_clear_stat_disabled}
+                        text={localize('Reset')}
+                        onClick={onClearStatClick}
+                        secondary
+                    />
+                )}
+            </div>
         </div>
     );
 };
@@ -342,13 +348,14 @@ const RunPanel = observer(() => {
                     className={classNames('run-panel', {
                         'run-panel__container': is_desktop,
                         'run-panel__container--tour-active': is_desktop && active_tour,
+                        'run-panel__container--mobile': !is_desktop,
                     })}
                     contentClassName='run-panel__content'
                     header={header}
                     footer={is_desktop ? footer : undefined}
                     is_open={is_drawer_open}
                     toggleDrawer={toggleDrawer}
-                    width={366}
+                    width={is_desktop ? 366 : '100%'}
                     zIndex={popover_zindex.RUN_PANEL}
                 >
                     {content}
