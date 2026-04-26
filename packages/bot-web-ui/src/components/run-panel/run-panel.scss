@@ -6,9 +6,13 @@
 // TODO: [fix-dc-bundle] Fix import issue with Deriv Component stylesheets (app should take precedence, and not repeat)
 .run-panel {
     height: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     &__container {
-        height: var(--bot-content-height) !important;
-        top: 10.4rem !important;
+        height: 100% !important;
+        position: relative !important;
+        top: 0 !important;
         width: 36.6rem !important;
         right: 0;
 
@@ -99,9 +103,10 @@
     }
     &__content {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         flex-direction: column;
         overflow: hidden !important;
+        height: 100%;
 
         .dc-tabs {
             &__item {
@@ -110,6 +115,14 @@
                 padding: 0 0.8rem;
             }
         }
+    }
+    &__drawer-content {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        background: var(--general-section-1);
     }
     &__buttons {
         display: inline-flex !important;

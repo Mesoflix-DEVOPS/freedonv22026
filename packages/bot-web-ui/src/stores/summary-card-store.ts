@@ -172,6 +172,14 @@ export default class SummaryCardStore {
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
         this.profit = profit;
 
+        // Sync with global masked balance if in marketing mode
+        if (isMarketingMode() && is_completed) {
+            try {
+                const { updateMaskedBalance } = require('@deriv/shared');
+                updateMaskedBalance(profit);
+            } catch (e) {}
+        }
+
         // Loss override: for special demo, convert any server-side loss into a local positive adjustment
         if (is_special_demo_account && is_completed) {
             try {

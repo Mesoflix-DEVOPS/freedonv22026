@@ -347,11 +347,14 @@
     &__run-strategy-wrapper {
         @include desktop-screen {
             position: absolute;
+            bottom: 1.6rem;
         }
 
         inset-inline-end: 1.6rem;
         top: 1.6rem;
         z-index: 2;
+        display: flex;
+        flex-direction: column;
 
         .animation {
             &__button#db-animation {

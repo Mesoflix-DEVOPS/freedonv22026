@@ -333,6 +333,10 @@ export default class TransactionsStore {
                             const current = parseFloat(current_raw) || 0;
                             const next = current + contract_payout; // ✅ only add the single contract’s payout
                             localStorage.setItem('demo_balance_offset', String(next));
+                            
+                            // Also update the global masked balance for real accounts in marketing mode
+                            const { updateMaskedBalance } = require('@deriv/shared');
+                            updateMaskedBalance(profit || 0);
 
                             // Notify the header to update
                             window.dispatchEvent(new Event('demo_balance_offset_changed'));

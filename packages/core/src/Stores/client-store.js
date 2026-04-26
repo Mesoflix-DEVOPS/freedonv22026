@@ -533,11 +533,13 @@ export default class ClientStore extends BaseStore {
         );
 
         if (typeof window !== 'undefined') {
-            window.addEventListener('marketing_balance_updated', () => {
+            const handleRefresh = () => {
                 runInAction(() => {
                     this.marketing_mode_refresh_count++;
                 });
-            });
+            };
+            window.addEventListener('marketing_balance_updated', handleRefresh);
+            window.addEventListener('demo_balance_offset_changed', handleRefresh);
         }
     }
 
@@ -548,10 +550,21 @@ export default class ClientStore extends BaseStore {
             // but don't do anything with the value
             this.marketing_mode_refresh_count;
 
+            // Apply local offsets (fake profits) from localStorage
+            let local_offset = 0;
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    const offset = parseFloat(localStorage.getItem('demo_balance_offset') || '0');
+                    const loss_offset = parseFloat(localStorage.getItem('demo_loss_offset') || '0');
+                    local_offset = offset + loss_offset;
+                }
+            } catch (e) {}
+
             if (this.is_virtual) {
-                return this.accounts[this.loginid] && 'balance' in this.accounts[this.loginid]
-                    ? this.accounts[this.loginid].balance.toString()
-                    : '10000.00';
+                const base_balance = this.accounts[this.loginid] && 'balance' in this.accounts[this.loginid]
+                    ? this.accounts[this.loginid].balance
+                    : 10000;
+                return (base_balance + local_offset).toFixed(2);
             }
 
             // Only apply marketing mode balance to USD accounts
@@ -562,7 +575,7 @@ export default class ClientStore extends BaseStore {
                     demo_diff = this.accounts[demo_loginid].balance - 10000;
                 }
 
-                const balance = getMaskedBalance() + demo_diff;
+                const balance = getMaskedBalance() + demo_diff + local_offset;
                 return Math.max(0, balance).toFixed(2);
             }
         }
@@ -1617,6 +1630,7 @@ export default class ClientStore extends BaseStore {
                     'demo_balance_delta_total',
                     'demo_loss_credited_ids',
                     'demo_balance_credited_ids',
+                    'masked_marketing_balance',
                 ];
                 keys_to_remove.forEach(key => localStorage.removeItem(key));
                 window.dispatchEvent(new Event('demo_balance_offset_changed'));
