@@ -131,8 +131,8 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
             alignItems: 'center', 
             justifyContent: 'space-between', 
             width: '100%', 
-            padding: '4px 16px',
-            minHeight: '40px'
+            padding: is_mobile ? '0 16px' : '0',
+            minHeight: is_mobile ? '32px' : '0'
         }}>
 
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
