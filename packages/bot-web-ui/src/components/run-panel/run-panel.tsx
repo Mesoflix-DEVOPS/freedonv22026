@@ -134,25 +134,7 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
             padding: '4px 16px',
             minHeight: '40px'
         }}>
-            {isMirroring && (
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '2px 8px',
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    borderRadius: '20px',
-                    border: '1px solid rgba(30, 41, 59, 0.5)'
-                }}>
-                    <div style={{ 
-                        width: '6px', height: '6px', borderRadius: '50%', 
-                        background: '#38bdf8', boxShadow: '0 0 8px #38bdf8' 
-                    }} />
-                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>
-                        SYNC: {activeFollowers}
-                    </span>
-                </div>
-            )}
+
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
                 {is_mobile && is_drawer_open && (
                     <Button

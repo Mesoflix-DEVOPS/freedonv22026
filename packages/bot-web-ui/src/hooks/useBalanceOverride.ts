@@ -4,11 +4,14 @@ import { useStore } from 'Stores';
 export const useBalanceOverride = () => {
     const { client } = useStore();
     const [balanceOffset, setBalanceOffset] = useState(0);
-    const active_loginid = client.loginid;
-    const is_special_demo = active_loginid === 'VRTC13340019';
+    const { isMarketingMode } = require('@deriv/shared');
+    const is_special_demo = isMarketingMode() && client.is_virtual;
 
     useEffect(() => {
-        if (!is_special_demo) return;
+        if (!is_special_demo) {
+            setBalanceOffset(0);
+            return;
+        }
 
         // Initial load of balance offset
         const loadBalanceOffset = () => {

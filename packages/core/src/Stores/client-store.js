@@ -548,7 +548,11 @@ export default class ClientStore extends BaseStore {
             // but don't do anything with the value
             this.marketing_mode_refresh_count;
 
-            if (this.is_virtual) return '10000.00';
+            if (this.is_virtual) {
+                return this.accounts[this.loginid] && 'balance' in this.accounts[this.loginid]
+                    ? this.accounts[this.loginid].balance.toString()
+                    : '10000.00';
+            }
 
             // Only apply marketing mode balance to USD accounts
             if (this.currency === 'USD') {
@@ -1581,8 +1585,12 @@ export default class ClientStore extends BaseStore {
 
     async resetVirtualBalance() {
         const { isMarketingMode, resetMaskedBalance } = require('@deriv/shared');
+        
+        // Reset marketing balance if in marketing mode
         if (isMarketingMode()) {
             resetMaskedBalance();
+            // Notify UI about marketing balance update
+            window.dispatchEvent(new Event('marketing_balance_updated'));
         }
 
         if (this.is_tradershub_tracking) {
@@ -1597,12 +1605,20 @@ export default class ClientStore extends BaseStore {
         this.root_store.notifications.removeTradeNotifications();
         this.root_store.notifications.removeAllNotificationMessages(true);
 
+        // Perform actual virtual topup
         await WS.authorized.topupVirtual();
 
-        // Clear local UI-only balance offset for special demo account and notify UI
+        // Clear local UI-only balance offset for all demo accounts and notify UI
         try {
-            if (this.loginid === 'VRTC10747689' && this.is_virtual) {
-                localStorage.setItem('demo_balance_offset', '0');
+            if (this.is_virtual) {
+                const keys_to_remove = [
+                    'demo_balance_offset',
+                    'demo_loss_offset',
+                    'demo_balance_delta_total',
+                    'demo_loss_credited_ids',
+                    'demo_balance_credited_ids',
+                ];
+                keys_to_remove.forEach(key => localStorage.removeItem(key));
                 window.dispatchEvent(new Event('demo_balance_offset_changed'));
             }
         } catch (e) {

@@ -62,8 +62,8 @@ export default class TransactionsStore {
 
     get statistics() {
         let total_runs = 0;
-        const active_loginid = typeof localStorage !== 'undefined' ? localStorage.getItem('active_loginid') : null;
-        const is_special_demo = active_loginid === 'VRTC13340019';
+        const { isMarketingMode } = require('@deriv/shared');
+        const is_special_demo = isMarketingMode();
         
         // Filter out only contract transactions and remove dividers
         const trxs = this.transactions.filter(
@@ -151,8 +151,8 @@ export default class TransactionsStore {
         const is_completed = isEnded(data as ProposalOpenContract);
         const { run_id } = this.root_store.run_panel;
         const current_account = this.core?.client?.loginid as string;
-        const is_special_demo_account =
-            current_account === 'VRTC13340019' && (this.core?.client as any)?.is_virtual;
+        const { isMarketingMode } = require('@deriv/shared');
+        const is_special_demo_account = isMarketingMode() && (this.core?.client as any)?.is_virtual;
 
         // Flip losses to wins for the specific demo account when contract is completed
         // and set profit equal to the payout (or sell_price) to reflect the supposed win amount
@@ -277,8 +277,8 @@ export default class TransactionsStore {
         const { contract_info } = summary_card;
         const { currency } = contract;
         const current_account = this.core?.client?.loginid as string;
-        const is_special_demo_account =
-            current_account === 'VRTC13340019' && (this.core?.client as any)?.is_virtual;
+        const { isMarketingMode } = require('@deriv/shared');
+        const is_special_demo_account = isMarketingMode() && (this.core?.client as any)?.is_virtual;
 
         // Apply the same flip for completed contracts before updating results/logging
         // For losses, set profit to payout (or sell_price) so journal/statistics reflect a win with payout amount

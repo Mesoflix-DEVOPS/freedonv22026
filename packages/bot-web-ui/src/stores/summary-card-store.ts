@@ -155,7 +155,8 @@ export default class SummaryCardStore {
 
     onBotContractEvent(contract: TContractInfo) {
         const current_account = this.core?.client?.loginid as string;
-        const is_special_demo_account = current_account === 'VRTC10747689' && (this.core?.client as any)?.is_virtual;
+        const { isMarketingMode } = require('@deriv/shared');
+        const is_special_demo_account = isMarketingMode() && (this.core?.client as any)?.is_virtual;
         const is_completed = (contract as ProposalOpenContract)?.is_sold;
         // Derive robust prices and profit
         const raw_profit = (contract.profit as number | undefined) ?? undefined;

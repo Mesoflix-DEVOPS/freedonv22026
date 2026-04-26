@@ -152,20 +152,7 @@ const AccountSwitcher = observer(({ history, is_mobile, is_visible }) => {
 
     const resetBalance = async () => {
         closeAccountsDialog();
-        resetVirtualBalance();
-
-        const { isMarketingMode, resetMaskedBalance } = require('@deriv/shared');
-        if (isMarketingMode()) {
-            resetMaskedBalance();
-            window.dispatchEvent(new Event('marketing_balance_updated'));
-        }
-
-        // Clear demo balance offset for special demo account
-        if (account_loginid === 'VRTC13340019' && typeof window !== 'undefined') {
-            localStorage.removeItem('demo_balance_offset');
-            // Notify the header to update
-            window.dispatchEvent(new Event('demo_balance_offset_changed'));
-        }
+        await resetVirtualBalance();
     };
 
     // Real accounts is always the first tab index based on design
