@@ -131,6 +131,7 @@
         flex: 1 !important;
         overflow: hidden !important;
         background: var(--general-section-1);
+        position: relative;
     }
     &__buttons {
         display: inline-flex !important;
@@ -184,7 +185,7 @@
             display: flex !important;
             flex-direction: column !important;
             overflow: hidden !important;
-            height: 100% !important;
+            min-height: 0; // Allow it to shrink and share space
 
             &__list {
                 width: 100%;
