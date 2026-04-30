@@ -109,18 +109,42 @@ export const StatisticsSummary = ({
     </div>
 );
 
-const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onClearStatClick }: TDrawerHeader) =>
-    is_mobile &&
-    is_drawer_open && (
-        <Button
-            id='db-run-panel__clear-button'
-            className='run-panel__clear-button'
-            is_disabled={is_clear_stat_disabled}
-            text={localize('Reset')}
-            onClick={onClearStatClick}
-            secondary
-        />
+const DrawerHeader = ({ is_clear_stat_disabled, is_drawer_open, onClearStatClick, toggleDrawer }: any) => {
+    return (
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            width: '100%', 
+            padding: '0 16px',
+            minHeight: '40px'
+        }}>
+            <Text weight='bold'>{localize('Transactions')}</Text>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                <div 
+                    onClick={onClearStatClick}
+                    style={{ 
+                        cursor: is_clear_stat_disabled ? 'not-allowed' : 'pointer',
+                        opacity: is_clear_stat_disabled ? 0.5 : 1,
+                        marginRight: '16px',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }}
+                    title={localize('Reset')}
+                >
+                    <Icon icon='IcRestart' size={20} />
+                </div>
+                <div 
+                    onClick={() => toggleDrawer(false)}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    title={localize('Close')}
+                >
+                    <Icon icon='IcCross' size={20} />
+                </div>
+            </div>
+        </div>
     );
+};
 
 const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
     return (
@@ -287,11 +311,12 @@ const RunPanel = observer(() => {
             is_mobile={!is_desktop}
             is_drawer_open={is_drawer_open}
             onClearStatClick={onClearStatClick}
+            toggleDrawer={toggleDrawer}
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART].includes(active_tab) || active_tour;
-    if ((!show_run_panel && is_desktop) || active_tour === 'bot_builder') return null;
+    const show_run_panel = [DASHBOARD, BOT_BUILDER, CHART].includes(active_tab) || active_tour;
+    if (active_tour === 'bot_builder') return null;
 
     return (
         <>

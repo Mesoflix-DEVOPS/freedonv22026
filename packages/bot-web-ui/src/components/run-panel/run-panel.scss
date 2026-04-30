@@ -5,12 +5,25 @@
 **/
 // TODO: [fix-dc-bundle] Fix import issue with Deriv Component stylesheets (app should take precedence, and not repeat)
 .run-panel {
-    height: 0;
+    height: 100% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
     &__container {
-        height: var(--bot-content-height) !important;
-        top: 10.4rem !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        position: absolute !important;
+        top: 0 !important;
+        bottom: 0 !important;
         width: 36.6rem !important;
-        right: 0;
+        right: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: var(--general-section-1) !important;
+        overflow: hidden !important;
+        flex: 1 !important;
+        transform: none !important;
 
         &--mobile {
             height: 100%;
