@@ -334,10 +334,10 @@
 
                 // responsive adjustments
                 @include mobile-or-tablet-screen {
-                    padding: 0 1.6rem;
-                    margin: 2px 4px;
-                    height: 4.4rem;
-                    font-size: 1.3rem;
+                    padding: 0 1.2rem;
+                    margin: 2px 2px;
+                    height: 3.8rem;
+                    font-size: 1.25rem;
                 }
             }
 
@@ -352,7 +352,8 @@
             height: calc(100% - 3.2rem) !important;
             display: flex !important;
             flex-direction: column !important;
-            overflow: hidden !important;
+            overflow: visible !important;
+            width: 36.6rem;
         }
 
         inset-inline-end: 1.6rem;

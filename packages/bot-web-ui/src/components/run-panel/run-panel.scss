@@ -9,11 +9,11 @@
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     &__container {
         height: 100% !important;
         max-height: 100% !important;
-        position: relative !important;
+        position: absolute !important;
         top: 0 !important;
         bottom: 0 !important;
         width: 36.6rem !important;
