@@ -21,9 +21,9 @@
         display: flex !important;
         flex-direction: column !important;
         background: var(--general-section-1) !important;
-        overflow: hidden !important;
+        overflow: visible !important; // Allow drawer handle to be visible
         flex: 1 !important;
-        transform: none !important;
+        z-index: 1000 !important;
 
         &--mobile {
             height: 100%;
@@ -121,6 +121,42 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 padding: 0 0.8rem;
+            }
+        }
+    }
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0 1.6rem;
+        min-height: 4.8rem;
+        border-bottom: 1px solid var(--general-section-1);
+        background: var(--general-section-1);
+
+        &-icons {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
+
+        &-icon {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-left: 1.6rem;
+            transition: opacity 0.2s;
+
+            &:hover {
+                opacity: 0.7;
+            }
+
+            &--disabled {
+                cursor: not-allowed;
+                opacity: 0.3;
+                &:hover {
+                    opacity: 0.3;
+                }
             }
         }
     }

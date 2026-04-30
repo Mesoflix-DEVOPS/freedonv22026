@@ -1,6 +1,6 @@
 import React from 'react';
 import classNames from 'classnames';
-import { Button, Drawer, Modal, Money, Tabs, Text, ThemedScrollbars } from '@deriv/components';
+import { Button, Drawer, Icon, Modal, Money, Tabs, Text, ThemedScrollbars } from '@deriv/components';
 import { observer, useStore } from '@deriv/stores';
 import { Localize, localize } from '@deriv/translations';
 import Journal from 'Components/journal';
@@ -109,34 +109,23 @@ export const StatisticsSummary = ({
     </div>
 );
 
-const DrawerHeader = ({ is_clear_stat_disabled, is_drawer_open, onClearStatClick, toggleDrawer }: any) => {
+const DrawerHeader = ({ is_clear_stat_disabled, onClearStatClick, toggleDrawer }: any) => {
     return (
-        <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between', 
-            width: '100%', 
-            padding: '0 16px',
-            minHeight: '40px'
-        }}>
+        <div className='run-panel__header'>
             <Text weight='bold'>{localize('Transactions')}</Text>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+            <div className='run-panel__header-icons'>
                 <div 
                     onClick={onClearStatClick}
-                    style={{ 
-                        cursor: is_clear_stat_disabled ? 'not-allowed' : 'pointer',
-                        opacity: is_clear_stat_disabled ? 0.5 : 1,
-                        marginRight: '16px',
-                        display: 'flex',
-                        alignItems: 'center'
-                    }}
+                    className={classNames('run-panel__header-icon', {
+                        'run-panel__header-icon--disabled': is_clear_stat_disabled
+                    })}
                     title={localize('Reset')}
                 >
                     <Icon icon='IcRestart' size={20} />
                 </div>
                 <div 
                     onClick={() => toggleDrawer(false)}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    className='run-panel__header-icon'
                     title={localize('Close')}
                 >
                     <Icon icon='IcCross' size={20} />
