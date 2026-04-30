@@ -132,6 +132,28 @@
         overflow: hidden !important;
         background: var(--general-section-1);
         position: relative;
+        padding: 0 !important;
+        margin: 0 !important;
+
+        .dc-tabs {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            min-height: 0; // Allow it to shrink and share space
+
+            &__list {
+                width: 100%;
+            }
+
+            &__content {
+                flex: 1 !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+            }
+        }
     }
     &__buttons {
         display: inline-flex !important;
@@ -172,34 +194,6 @@
         }
     }
     
-    &__drawer-content {
-        height: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-        padding: 0 !important;
-        margin: 0 !important;
-
-        .dc-tabs {
-            flex: 1 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            min-height: 0; // Allow it to shrink and share space
-
-            &__list {
-                width: 100%;
-            }
-
-            &__content {
-                flex: 1 !important;
-                overflow: hidden !important;
-                display: flex !important;
-                flex-direction: column !important;
-                height: 100% !important;
-            }
-        }
-    }
 
     &__tabs {
         flex-shrink: 0;
