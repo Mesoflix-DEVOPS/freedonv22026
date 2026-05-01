@@ -31,9 +31,8 @@ type TStatisticsSummary = {
 };
 type TDrawerHeader = {
     is_clear_stat_disabled: boolean;
-    is_mobile: boolean;
-    is_drawer_open: boolean;
     onClearStatClick: () => void;
+    toggleDrawer: (is_open: boolean) => void;
 };
 
 type TDrawerContent = {
@@ -109,25 +108,21 @@ export const StatisticsSummary = ({
     </div>
 );
 
-const DrawerHeader = ({ is_clear_stat_disabled, onClearStatClick, toggleDrawer }: any) => {
+const DrawerHeader = ({ is_clear_stat_disabled, onClearStatClick, toggleDrawer }: TDrawerHeader) => {
     return (
         <div className='run-panel__header'>
             <Text weight='bold'>{localize('Transactions')}</Text>
             <div className='run-panel__header-icons'>
-                <div 
+                <div
                     onClick={onClearStatClick}
                     className={classNames('run-panel__header-icon', {
-                        'run-panel__header-icon--disabled': is_clear_stat_disabled
+                        'run-panel__header-icon--disabled': is_clear_stat_disabled,
                     })}
                     title={localize('Reset')}
                 >
                     <Icon icon='IcRestart' size={20} />
                 </div>
-                <div 
-                    onClick={() => toggleDrawer(false)}
-                    className='run-panel__header-icon'
-                    title={localize('Close')}
-                >
+                <div onClick={() => toggleDrawer(false)} className='run-panel__header-icon' title={localize('Close')}>
                     <Icon icon='IcCross' size={20} />
                 </div>
             </div>
@@ -260,7 +255,7 @@ const RunPanel = observer(() => {
     const { statistics } = transactions;
     const { active_tour, active_tab } = dashboard;
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
-    const { BOT_BUILDER, CHART } = DBOT_TABS;
+    const { DASHBOARD, BOT_BUILDER, CHART } = DBOT_TABS;
 
     React.useEffect(() => {
         onMount();
@@ -326,6 +321,16 @@ const RunPanel = observer(() => {
                 >
                     {content}
                 </Drawer>
+                {!is_drawer_open && show_run_panel && (
+                    <div
+                        className={classNames('run-panel__toggle', {
+                            'run-panel__toggle--mobile': !is_desktop,
+                        })}
+                        onClick={() => toggleDrawer(true)}
+                    >
+                        <Icon icon='IcReports' size={24} />
+                    </div>
+                )}
                 {!is_desktop && <MobileDrawerFooter />}
             </div>
             <SelfExclusion onRunButtonClick={onRunButtonClick} />

@@ -197,6 +197,41 @@
             min-width: 8rem;
         }
     }
+
+    &__toggle {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4rem;
+        height: 4rem;
+        background: var(--general-section-1);
+        border: 1px solid var(--general-section-2);
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 999;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+
+        &:hover {
+            width: 4.4rem;
+            background: var(--general-section-2);
+        }
+
+        &--mobile {
+            top: unset;
+            bottom: 8rem;
+            right: 1.6rem;
+            border: 1px solid var(--general-section-2);
+            border-radius: 50%;
+            transform: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+    }
 }
 
 .controls {
@@ -243,7 +278,9 @@
             &-active {
                 height: auto;
                 transform: translateX(0%);
-                transition: height 500ms, transform 500ms;
+                transition:
+                    height 500ms,
+                    transform 500ms;
             }
         }
         &-exit {
