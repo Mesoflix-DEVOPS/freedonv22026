@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { routes } from '@deriv/shared';
+import { routes, getPlatformSettings } from '@deriv/shared';
 import classNames from 'classnames';
 import { updateWorkspaceName } from '@deriv/bot-skeleton';
 import dbot from '@deriv/bot-skeleton/src/scratch/dbot';
@@ -18,7 +18,6 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import Tutorial from '../tutorials';
 import { tour_list } from '../tutorials/dbot-tours/utils';
-import { getPlatformSettings } from '@deriv/shared';
 import Finesttool from '../finesttool';
 import RiskManagementCalculator from '../riskManagementCalculator';
 import Strategy from '../strategy';
@@ -26,14 +25,21 @@ import Copytrading from '../copytrading';
 import Botlist from '../botlist';
 import Dptool from '../dptool';
 
-import { FaChartBar, FaChartLine, FaPuzzlePiece, FaChessKnight, FaUsers, FaShieldAlt, FaRobot, FaTachometerAlt, FaExchangeAlt, FaCopy, FaLightbulb } from 'react-icons/fa';
-
+import {
+    FaChartBar,
+    FaChartLine,
+    FaPuzzlePiece,
+    FaChessKnight,
+    FaUsers,
+    FaShieldAlt,
+    FaRobot,
+    FaTachometerAlt,
+    FaExchangeAlt,
+    FaCopy,
+    FaLightbulb,
+} from 'react-icons/fa';
 
 const AppWrapper = observer(() => {
-
-
-
-
     const { dashboard, load_modal, run_panel, quick_strategy, summary_card } = useDBotStore();
     const {
         active_tab,
@@ -56,8 +62,17 @@ const AppWrapper = observer(() => {
     const { ui } = useStore();
     const { url_hashed_values, is_desktop } = ui;
 
-
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'botlist', 'finesttool', 'copytrading', 'risk_management_calculator', 'strategy'];
+    const hash = [
+        'dashboard',
+        'bot_builder',
+        'chart',
+        'tutorial',
+        'botlist',
+        'finesttool',
+        'copytrading',
+        'risk_management_calculator',
+        'strategy',
+    ];
 
     let tab_value: number | string = active_tab;
     const GetHashedValue = (tab: number) => {
@@ -163,16 +178,17 @@ const AppWrapper = observer(() => {
                         'main__container--active': active_tour && active_tab === DASHBOARD && !is_desktop,
                     })}
                 >
-                    <Tabs
-                        active_index={active_tab}
-                        className='main__tabs'
-                        onTabItemClick={handleTabChange}
-                        top
-                    >
+                    <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top>
                         <div
-
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaTachometerAlt size={14} />
                                     Dashboard
                                 </span>
@@ -182,9 +198,15 @@ const AppWrapper = observer(() => {
                             <Dashboard handleTabChange={handleTabChange} />
                         </div>
                         <div
-
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaRobot size={14} />
                                     Bot Builder
                                 </span>
@@ -193,7 +215,14 @@ const AppWrapper = observer(() => {
                         />
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaChartLine size={14} />
                                     Charts
                                 </span>
@@ -208,7 +237,14 @@ const AppWrapper = observer(() => {
                         </div>
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaChessKnight size={14} />
                                     Dptool
                                 </span>
@@ -220,10 +256,16 @@ const AppWrapper = observer(() => {
                             </div>
                         </div>
 
-
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaExchangeAlt size={14} />
                                     Free Bots
                                 </span>
@@ -235,7 +277,14 @@ const AppWrapper = observer(() => {
 
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaChartBar size={14} />
                                     Analysis Tool
                                 </span>
@@ -247,7 +296,14 @@ const AppWrapper = observer(() => {
 
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaCopy size={14} />
                                     Copy Trading
                                 </span>
@@ -257,11 +313,16 @@ const AppWrapper = observer(() => {
                             <Copytrading />
                         </div>
 
-
-
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaShieldAlt size={14} />
                                     Risk Management
                                 </span>
@@ -275,7 +336,14 @@ const AppWrapper = observer(() => {
 
                         <div
                             label={
-                                <span style={{ color: '#001ac4', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>
+                                <span
+                                    style={{
+                                        color: '#001ac4',
+                                        fontWeight: 'bold',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <FaLightbulb size={14} />
                                     Strategy
                                 </span>
@@ -286,17 +354,13 @@ const AppWrapper = observer(() => {
                                 <Strategy />
                             </div>
                         </div>
-
-
-
-
                     </Tabs>
                 </div>
             </div>
             {is_desktop ? (
                 <>
                     <div className='main__run-strategy-wrapper'>
-                        {active_tab !== 4 && (
+                        {active_tab !== 3 && (
                             <>
                                 <RunStrategy />
                                 <RunPanel />
@@ -307,7 +371,7 @@ const AppWrapper = observer(() => {
                     <TradingViewModal />
                 </>
             ) : (
-                !is_open && active_tab !== 4 && <RunPanel />
+                !is_open && active_tab !== 3 && <RunPanel />
             )}
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}

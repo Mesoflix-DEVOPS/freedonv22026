@@ -299,8 +299,7 @@ const RunPanel = observer(() => {
         />
     );
 
-    const show_run_panel = [DASHBOARD, BOT_BUILDER, CHART].includes(active_tab) || active_tour;
-    if (active_tour === 'bot_builder') return null;
+    const show_run_panel = [0, 1, 2].includes(active_tab) || active_tour;
 
     return (
         <>
