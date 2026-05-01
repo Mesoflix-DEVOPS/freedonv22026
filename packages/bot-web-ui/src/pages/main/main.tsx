@@ -14,6 +14,7 @@ import { useDBotStore } from 'Stores/useDBotStore';
 import RunPanel from '../../components/run-panel';
 import Chart from '../chart';
 import ChartModal from '../chart/chart-modal';
+import BotBuilder from '../bot-builder';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import Tutorial from '../tutorials';
@@ -176,6 +177,7 @@ const AppWrapper = observer(() => {
                 <div
                     className={classNames('main__container', {
                         'main__container--active': active_tour && active_tab === DASHBOARD && !is_desktop,
+                        'main__container--shrunk': is_drawer_open && is_desktop && active_tab !== 3,
                     })}
                 >
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top>
@@ -212,7 +214,9 @@ const AppWrapper = observer(() => {
                                 </span>
                             }
                             id='id-bot-builder'
-                        />
+                        >
+                            <BotBuilder />
+                        </div>
                         <div
                             label={
                                 <span
@@ -289,7 +293,7 @@ const AppWrapper = observer(() => {
                                     Analysis Tool
                                 </span>
                             }
-                            id='id-dbot-dashboard'
+                            id='id-finesttool'
                         >
                             <Finesttool />
                         </div>
@@ -308,7 +312,7 @@ const AppWrapper = observer(() => {
                                     Copy Trading
                                 </span>
                             }
-                            id='id-dbot-dashboard'
+                            id='id-copytrading'
                         >
                             <Copytrading />
                         </div>
@@ -355,18 +359,12 @@ const AppWrapper = observer(() => {
                             </div>
                         </div>
                     </Tabs>
+                    {is_desktop && active_tab !== 3 && <RunPanel />}
                 </div>
             </div>
             {is_desktop ? (
                 <>
-                    <div className='main__run-strategy-wrapper'>
-                        {active_tab !== 3 && (
-                            <>
-                                <RunStrategy />
-                                <RunPanel />
-                            </>
-                        )}
-                    </div>
+                    <div className='main__run-strategy-wrapper'>{active_tab !== 3 && <RunStrategy />}</div>
                     <ChartModal />
                     <TradingViewModal />
                 </>

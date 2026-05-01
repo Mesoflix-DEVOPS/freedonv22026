@@ -23,6 +23,11 @@
         border: none;
         max-width: 100%;
         width: 100%;
+        transition: width 0.3s ease;
+
+        &--shrunk {
+            width: calc(100% - 36.6rem);
+        }
 
         &--active {
             //css for onboard tour overlay
@@ -393,6 +398,10 @@
 
     &--active {
         z-index: 1;
+    }
+
+    &--expanded {
+        width: calc(100vw - 39.8rem);
     }
 
     &--inactive {
